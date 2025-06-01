@@ -38,7 +38,7 @@ UI, UseCase, Repository 등에서 공통적으로 사용되며,
 ```dart
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'user.freezed.dart';
+part '../../../../docs/logic/user.freezed.dart';
 
 @freezed
 class User with _$User {

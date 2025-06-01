@@ -36,8 +36,8 @@ Mapper는 외부 DTO를 내부 Model로 변환하고,
 ## ✅ 기본 예시
 
 ```dart
-import '../../domain/model/user.dart';
-import '../dto/user_dto.dart';
+import '../../../../domain/model/user.dart';
+import '../../../../docs/dto/user_dto.dart';
 ```
 
 ### 📌 DTO → Model 변환

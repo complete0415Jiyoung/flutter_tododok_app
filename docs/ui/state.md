@@ -47,9 +47,9 @@ lib/
 ```dart
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import '../../domain/model/user.dart';
+import '../../../../domain/model/user.dart';
 
-part 'login_state.freezed.dart';
+part '../../../../docs/ui/login_state.freezed.dart';
 
 @freezed
 class LoginState with _$LoginState {

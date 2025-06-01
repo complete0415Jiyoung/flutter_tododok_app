@@ -36,7 +36,7 @@ Mapper를 통해 변환해서 사용합니다.
 ```dart
 import 'package:json_annotation/json_annotation.dart';
 
-part 'user_dto.g.dart';
+part '../../../../docs/logic/user_dto.g.dart';
 
 @JsonSerializable()
 class UserDto {
