@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+# 🔥 자동 생성 파일들 - Git 추적 제외
+# Code generation (json_serializable, freezed, riverpod_generator)
+**/*.g.dart
+**/*.freezed.dart
+
+# Firebase 설정 파일 (민감 정보 포함될 수 있음)
+# firebase_options.dart는 보통 포함시키지만, 민감한 정보가 있다면 제외
+# lib/firebase_options.dart
+
+# 환경변수 파일
+.env
+.env.local
+.env.development
+.env.production
