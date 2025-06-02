@@ -45,17 +45,75 @@ app.*.map.json
 /android/app/release
 
 
-# 🔥 자동 생성 파일들 - Git 추적 제외
-# Code generation (json_serializable, freezed, riverpod_generator)
-**/*.g.dart
-**/*.freezed.dart
 
-# Firebase 설정 파일 (민감 정보 포함될 수 있음)
-# firebase_options.dart는 보통 포함시키지만, 민감한 정보가 있다면 제외
-# lib/firebase_options.dart
+# iOS related
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/profile
+**/ios/**/xcuserdata
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
 
-# 환경변수 파일
+# macOS
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+**/xcuserdata/
+
+# Windows
+**/windows/flutter/ephemeral/
+
+# Linux
+**/linux/flutter/ephemeral/
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# Coverage
+coverage/
+
+# Firebase Configuration Files (for security)
+# Comment out if you want to include them in version control
+firebase_options.dart
+lib/firebase_options.dart
+
+# Firebase platform-specific config files
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+ios/firebase_app_id_file.json
+macos/Runner/GoogleService-Info.plist
+macos/firebase_app_id_file.json
+web/firebase-config.js
+
+# Firebase CLI
+.firebaserc
+firebase.json
+.firebase/
+
+# Environment variables
 .env
 .env.local
 .env.development
 .env.production
+
+# Generated code files
+*.g.dart
+*.freezed.dart
+*.gr.dart
+
+# Code generation
+**/*.g.dart
+**/*.freezed.dart
+**/*.gr.dart
+
+# Riverpod generated files (already covered by *.g.dart but for clarity)
+**/*.riverpod.dart
