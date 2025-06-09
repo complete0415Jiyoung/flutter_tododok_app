@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tododok/splash/module/splash_router.dart';
+import 'package:tododok/typing/module/typing_route.dart';
 
 import '../../onboarding/module/onboarding_route.dart';
 import '../../home/module/home_route.dart'; // 추가
@@ -19,6 +20,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // 홈 화면 경로 추가
       ...homeRoutes,
+
+      // 타자 연습 화면 경로 추가
+      ...typingRoutes,
     ],
     errorBuilder: (context, state) => _ErrorScreen(error: state.error),
     debugLogDiagnostics: true,
