@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tododok/splash/module/splash_router.dart';
 
 import '../../onboarding/module/onboarding_route.dart';
+import '../../home/module/home_route.dart'; // 추가
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -15,6 +16,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // 온보딩 화면 경로
       ...onboardingRoutes,
+
+      // 홈 화면 경로 추가
+      ...homeRoutes,
     ],
     errorBuilder: (context, state) => _ErrorScreen(error: state.error),
     debugLogDiagnostics: true,
