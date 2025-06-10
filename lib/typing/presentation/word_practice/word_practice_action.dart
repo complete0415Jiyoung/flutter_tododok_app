@@ -8,6 +8,16 @@ sealed class WordPracticeAction with _$WordPracticeAction {
   /// 화면 초기화 (문장 로드)
   const factory WordPracticeAction.initialize(String language) = Initialize;
 
+  /// 특정 문장으로 초기화 (문장 선택에서 온 경우)
+  const factory WordPracticeAction.initializeWithSentence(
+    String language,
+    String sentenceId,
+  ) = InitializeWithSentence;
+
+  /// 랜덤 문장으로 초기화
+  const factory WordPracticeAction.initializeWithRandom(String language) =
+      InitializeWithRandom;
+
   /// 게임 시작
   const factory WordPracticeAction.startGame() = StartGame;
 

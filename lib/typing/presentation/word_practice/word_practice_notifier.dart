@@ -38,6 +38,10 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
     switch (action) {
       case Initialize(:final language):
         await _initialize(language);
+      case InitializeWithSentence(:final language, :final sentenceId):
+        await _initializeWithSentence(language, sentenceId);
+      case InitializeWithRandom(:final language):
+        await _initializeWithRandom(language);
       case StartGame():
         _startGame();
       case PauseGame():
@@ -73,6 +77,33 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
 
   Future<void> _initialize(String language) async {
     state = state.copyWith(language: language);
+    await _loadWordPool(language);
+  }
+
+  Future<void> _initializeWithSentence(
+    String language,
+    String sentenceId,
+  ) async {
+    // 특정 문장을 사용한 단어 풀 생성 로직
+    state = state.copyWith(language: language);
+    await _loadSpecificSentence(sentenceId);
+  }
+
+  Future<void> _initializeWithRandom(String language) async {
+    // 랜덤 문장을 사용한 단어 풀 생성 로직
+    state = state.copyWith(language: language);
+    await _loadRandomSentence(language);
+  }
+
+  Future<void> _loadSpecificSentence(String sentenceId) async {
+    // TODO: 특정 문장 ID로 문장을 가져와서 단어 풀 생성
+    // 현재는 기본 로직 사용
+    await _loadWordPool(state.language);
+  }
+
+  Future<void> _loadRandomSentence(String language) async {
+    // TODO: 랜덤 문장을 가져와서 단어 풀 생성
+    // 현재는 기본 로직 사용
     await _loadWordPool(language);
   }
 
