@@ -35,10 +35,8 @@ class _HomeScreenRootState extends ConsumerState<HomeScreenRoot> {
       onAction: (action) async {
         switch (action) {
           case StartWordPractice():
-            // 단어 연습 문장 선택 화면으로 이동
-            await context.push(
-              '/typing/sentence-selection?mode=word&language=ko',
-            );
+            // 단어 연습 화면으로 바로 이동 (랜덤 문장 사용)
+            await context.push('/typing/word?language=ko&random=true');
 
           case StartParagraphPractice():
             // 장문 연습 문장 선택 화면으로 이동
