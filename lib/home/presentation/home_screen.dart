@@ -16,281 +16,246 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColorsStyle.surface,
-      appBar: _buildAppBar(),
-      body: _buildBody(),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: _buildBody(context),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text('토도독'),
-      actions: [_buildNotificationIcon(), _buildSettingsIcon()],
-    );
-  }
-
-  Widget _buildNotificationIcon() {
-    return Stack(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.notifications),
-          onPressed: () => onAction(const HomeAction.viewNotifications()),
-        ),
-        if (state.unreadNotificationCount > 0)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                color: AppColorsStyle.error,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              child: Text(
-                '${state.unreadNotificationCount}',
-                style: AppTextStyle.caption.withColor(AppColorsStyle.white),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSettingsIcon() {
-    return IconButton(
-      icon: const Icon(Icons.settings),
-      onPressed: () => onAction(const HomeAction.openSettings()),
-    );
-  }
-
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     if (!state.isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return RefreshIndicator(
-      onRefresh: () async => onAction(const HomeAction.initialize()),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(AppDimensions.paddingLG),
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: () async => onAction(const HomeAction.initialize()),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildWelcomeSection(),
-            const SizedBox(height: AppDimensions.spacing24),
-            _buildStatsSection(),
-            const SizedBox(height: AppDimensions.spacing24),
+            _buildHeader(),
+            _buildHeroSection(),
             _buildMenuSection(),
-            const SizedBox(height: AppDimensions.spacing24),
-            _buildRecentResultsSection(),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildWelcomeSection() {
+  Widget _buildHeader() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.keyboard_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '토도독',
+            style: AppTextStyle.heading4.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
+          const Spacer(),
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.settings_rounded, size: 20),
+              onPressed: () => onAction(const HomeAction.openSettings()),
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColorsStyle.primary, AppColorsStyle.primaryLight],
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFEC4899)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '안녕하세요! 👋',
-            style: AppTextStyle.heading3.withColor(AppColorsStyle.white),
-          ),
-          const SizedBox(height: AppDimensions.spacing8),
-          Text(
-            '오늘도 타자 연습을 시작해볼까요?',
-            style: AppTextStyle.bodyLarge.withColor(AppColorsStyle.white),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsSection() {
-    final memberStats = state.memberStats;
-
-    if (memberStats is AsyncLoading) {
-      return _buildStatsLoading();
-    } else if (memberStats is AsyncError) {
-      return _buildStatsError();
-    } else if (memberStats is AsyncData) {
-      return _buildStatsContent(memberStats.value!);
-    }
-
-    return _buildStatsLoading(); // fallback
-  }
-
-  Widget _buildStatsLoading() {
-    return Container(
-      width: double.infinity,
-      height: 120,
-      decoration: BoxDecoration(
-        color: AppColorsStyle.containerBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: const Center(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _buildStatsError() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.containerBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.error_outline, color: AppColorsStyle.error),
-          SizedBox(height: AppDimensions.spacing8),
-          Text('통계를 불러올 수 없습니다'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsContent(member) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.cardBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
           BoxShadow(
-            color: AppColorsStyle.shadow,
-            blurRadius: 8,
-            offset: Offset(0, 2),
+            color: const Color(0xFF6366F1).withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('나의 타자 통계', style: AppTextStyle.heading4),
-          const SizedBox(height: AppDimensions.spacing16),
           Row(
             children: [
-              Expanded(
-                child: _buildStatItem(
-                  '평균 속도',
-                  '${member.averageWpm.toStringAsFixed(1)} WPM',
-                  Icons.speed,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.waving_hand_rounded,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
+              const SizedBox(width: 16),
               Expanded(
-                child: _buildStatItem(
-                  '평균 정확도',
-                  '${member.averageAccuracy.toStringAsFixed(1)}%',
-                  Icons.check_circle,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '안녕하세요!',
+                      style: AppTextStyle.heading3.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '오늘도 타자 연습을 시작해볼까요?',
+                      style: AppTextStyle.bodyLarge.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppDimensions.spacing12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  '연습 횟수',
-                  '${member.totalPracticeCount}회',
-                  Icons.edit,
-                ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1,
               ),
-              Expanded(
-                child: _buildStatItem(
-                  '승률',
-                  '${member.winRate.toStringAsFixed(1)}%',
-                  Icons.emoji_events,
+            ),
+            child: Row(
+              children: [
+                _buildQuickStat('평균 WPM', '45.2'),
+                Container(
+                  width: 1,
+                  height: 30,
+                  color: Colors.white.withOpacity(0.3),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                 ),
-              ),
-            ],
+                _buildQuickStat('정확도', '92.5%'),
+                Container(
+                  width: 1,
+                  height: 30,
+                  color: Colors.white.withOpacity(0.3),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                _buildQuickStat('연습 횟수', '127회'),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: AppColorsStyle.primary, size: AppDimensions.iconLG),
-        const SizedBox(height: AppDimensions.spacing4),
-        Text(value, style: AppTextStyle.numberMedium),
-        Text(label, style: AppTextStyle.labelMedium.textSecondary),
-      ],
+  Widget _buildQuickStat(String label, String value) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: AppTextStyle.heading5.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppTextStyle.bodySmall.copyWith(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildMenuSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('메뉴', style: AppTextStyle.heading4),
-        const SizedBox(height: AppDimensions.spacing16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildMenuCard(
-                '단어 연습',
-                '떨어지는 단어를\n빠르게 입력해보세요',
-                Icons.keyboard,
-                AppColorsStyle.primary,
-                () => onAction(const HomeAction.startWordPractice()),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '연습 시작하기',
+            style: AppTextStyle.heading4.copyWith(
+              color: const Color(0xFF1E293B),
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(width: AppDimensions.spacing12),
-            Expanded(
-              child: _buildMenuCard(
-                '장문 연습',
-                '긴 문장으로\n타자 실력을 향상시켜보세요',
-                Icons.article,
-                AppColorsStyle.secondary,
-                () => onAction(const HomeAction.startParagraphPractice()),
-              ),
+          ),
+          const SizedBox(height: 20),
+          _buildMenuCard(
+            '단어 연습',
+            '떨어지는 단어를 빠르게 입력해보세요',
+            Icons.speed_rounded,
+            const LinearGradient(
+              colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        const SizedBox(height: AppDimensions.spacing12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildMenuCard(
-                '친구 대결',
-                '친구와 함께\n타자 실력을 겨뤄보세요',
-                Icons.group,
-                AppColorsStyle.challengeWin,
-                () => onAction(const HomeAction.enterFriendChallenge()),
-              ),
+            () => onAction(const HomeAction.startWordPractice()),
+          ),
+          const SizedBox(height: 16),
+          _buildMenuCard(
+            '장문 연습',
+            '긴 문장으로 타자 실력을 향상시켜보세요',
+            Icons.article_rounded,
+            const LinearGradient(
+              colors: [Color(0xFF10B981), Color(0xFF059669)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(width: AppDimensions.spacing12),
-            Expanded(
-              child: _buildMenuCard(
-                '기록 보기',
-                '나의 타자 기록을\n확인해보세요',
-                Icons.analytics,
-                AppColorsStyle.info,
-                () => onAction(const HomeAction.viewRecords()),
-              ),
-            ),
-          ],
-        ),
-      ],
+            () => onAction(const HomeAction.startParagraphPractice()),
+          ),
+        ],
+      ),
     );
   }
 
@@ -298,119 +263,87 @@ class HomeScreen extends StatelessWidget {
     String title,
     String description,
     IconData icon,
-    Color color,
+    Gradient gradient,
     VoidCallback onTap,
   ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 120,
-        padding: const EdgeInsets.all(AppDimensions.paddingMD),
-        decoration: BoxDecoration(
-          color: AppColorsStyle.cardBackground,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-          border: Border.all(color: color.withOpacity(0.3)),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColorsStyle.shadow,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: AppDimensions.iconLG),
-            const SizedBox(height: AppDimensions.spacing8),
-            Text(title, style: AppTextStyle.labelLarge),
-            const SizedBox(height: AppDimensions.spacing4),
-            Text(
-              description,
-              style: AppTextStyle.bodySmall.textTertiary,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentResultsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('최근 연습 기록', style: AppTextStyle.heading4),
-        const SizedBox(height: AppDimensions.spacing16),
-        switch (state.recentResults) {
-          AsyncLoading() => _buildRecentResultsLoading(),
-          AsyncError() => _buildRecentResultsError(),
-          AsyncData(:final value) => _buildRecentResultsList(value),
-          _ => _buildRecentResultsLoading(),
-        },
-      ],
-    );
-  }
-
-  Widget _buildRecentResultsLoading() {
-    return Container(
-      height: 100,
-      decoration: BoxDecoration(
-        color: AppColorsStyle.containerBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: const Center(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _buildRecentResultsError() {
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.containerBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: const Text('최근 기록을 불러올 수 없습니다'),
-    );
-  }
-
-  Widget _buildRecentResultsList(List<String> results) {
-    if (results.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(AppDimensions.paddingLG),
-        decoration: BoxDecoration(
-          color: AppColorsStyle.containerBackground,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-        ),
-        child: const Text('아직 연습 기록이 없습니다'),
-      );
-    }
-
     return Container(
       decoration: BoxDecoration(
-        color: AppColorsStyle.cardBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-        boxShadow: const [
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
           BoxShadow(
-            color: AppColorsStyle.shadow,
-            blurRadius: 4,
-            offset: Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Column(
-        children: results.take(3).map((result) {
-          return ListTile(
-            leading: const Icon(Icons.history, color: AppColorsStyle.primary),
-            title: Text(result, style: AppTextStyle.bodyMedium),
-            trailing: const Icon(
-              Icons.chevron_right,
-              color: AppColorsStyle.textTertiary,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    gradient: gradient,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gradient.colors.first.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTextStyle.heading5.copyWith(
+                          color: const Color(0xFF1E293B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: AppTextStyle.bodyMedium.copyWith(
+                          color: const Color(0xFF64748B),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  height: 32,
+                  width: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Color(0xFF64748B),
+                    size: 18,
+                  ),
+                ),
+              ],
             ),
-            onTap: () => onAction(const HomeAction.viewRecords()),
-          );
-        }).toList(),
+          ),
+        ),
       ),
     );
   }
