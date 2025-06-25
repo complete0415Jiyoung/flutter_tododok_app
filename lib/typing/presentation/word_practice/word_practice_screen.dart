@@ -47,7 +47,6 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
   @override
   void initState() {
     super.initState();
-    _textController.addListener(_onTextChanged);
 
     // 애니메이션 컨트롤러 초기화
     _slideAnimationController = AnimationController(
@@ -135,10 +134,18 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
       _scrollToCurrentWord();
     }
 
-    // 단어가 완성되었을 때 애니메이션 실행 후 다음 단어로 이동
     if (oldWidget.state.currentWordInputStatus != WordInputStatus.complete &&
         widget.state.currentWordInputStatus == WordInputStatus.complete) {
       _onWordCompleted();
+    }
+    if (oldWidget.state.isGameOver != widget.state.isGameOver &&
+        widget.state.isGameOver) {
+      // 잠시 대기 후 결과 화면으로 자동 이동
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          widget.onAction(const WordPracticeAction.navigateToResult());
+        }
+      });
     }
 
     // 입력이 초기화되었을 때 텍스트 컨트롤러도 초기화
@@ -168,8 +175,8 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
     super.dispose();
   }
 
-  void _onTextChanged() {
-    widget.onAction(WordPracticeAction.updateInput(_textController.text));
+  void _onTextChanged(String value) {
+    widget.onAction(WordPracticeAction.updateInput(value));
   }
 
   void _startAutoCountdown() {
@@ -272,7 +279,15 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
   }
 
   void _onSubmit() {
-    if (widget.state.currentWordInputStatus == WordInputStatus.complete) {
+    if (widget.state.currentWord != null &&
+        _textController.text.trim().isNotEmpty) {
+      // 올바른 입력인 경우 - 자동으로 이미 처리됨 (didUpdateWidget에서)
+      if (widget.state.currentWordInputStatus == WordInputStatus.complete) {
+        // 이미 자동으로 처리되므로 아무것도 하지 않음
+        return;
+      }
+
+      // 틀린 입력이거나 완료되지 않은 경우 - 수동으로 제출
       _onWordCompleted();
     }
   }
@@ -317,8 +332,6 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
                   _buildStatsRow(),
                   const SizedBox(height: AppDimensions.paddingMD),
                   Expanded(child: _buildCarouselGameArea()),
-                  // 입력창을 캐러셀 영역으로 이동했으므로 여기서 제거
-                  _buildControlButtons(),
                   const SizedBox(height: AppDimensions.paddingMD),
                 ],
               ),
@@ -509,11 +522,8 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
       padding: const EdgeInsets.all(AppDimensions.paddingMD),
       child: Column(
         children: [
-          // 단어 캐러셀 (입력창 역할도 함께)
           Expanded(child: _buildWordCarousel()),
-
-          // 실제 입력창 (단어 비교와 함께 표시)
-          _buildInputArea(),
+          if (!widget.state.isGameOver) _buildInputArea(),
         ],
       ),
     );
@@ -537,8 +547,9 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
         return SingleChildScrollView(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
-          // 사용자 스크롤 비활성화 - 오직 프로그래밍적으로만 스크롤 가능
-          physics: const NeverScrollableScrollPhysics(),
+          physics: widget.state.isGameOver
+              ? const ClampingScrollPhysics() // 게임 종료 시 사용자 스크롤 허용
+              : const NeverScrollableScrollPhysics(), // 게임 중에는 프로그래밍적 스크롤만
           child: Row(
             children: allWords.asMap().entries.map((entry) {
               final index = entry.key;
@@ -654,41 +665,6 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
                 _buildMiniInputProgress(
                   word.text,
                   widget.state.currentWordInput,
-                ),
-              ],
-              // 완성 상태 표시
-              if (widget.state.currentWordInputStatus ==
-                  WordInputStatus.complete) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 12,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '완성!',
-                        style: AppTextStyle.bodySmall.copyWith(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             ],
@@ -825,28 +801,62 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
             obscureText: false,
             focusNode: _focusNode,
             enabled: widget.state.isGameRunning,
-
             autofocus: true, // 자동 포커스 활성화
             decoration: InputDecoration(
-              hintText: '단어를 입력하세요',
+              hintText:
+                  widget.state.currentWordInputStatus == WordInputStatus.error
+                  ? '틀렸습니다! 엔터를 눌러 다음 단어로 넘어가세요'
+                  : '단어를 입력하세요',
+              hintStyle: TextStyle(
+                color:
+                    widget.state.currentWordInputStatus == WordInputStatus.error
+                    ? Colors.red.withOpacity(0.7)
+                    : AppColorsStyle.onSurfaceVariant.withOpacity(0.7),
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColorsStyle.primary,
+                borderSide: BorderSide(
+                  color: _getCurrentWordBorderColor(),
                   width: 2,
                 ),
               ),
-              suffixIcon:
-                  widget.state.currentWordInputStatus ==
-                      WordInputStatus.complete
-                  ? const Icon(Icons.check_circle, color: Colors.green)
-                  : widget.state.currentWordInputStatus == WordInputStatus.error
-                  ? const Icon(Icons.error, color: Colors.red)
-                  : null,
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.state.currentWordInputStatus ==
+                      WordInputStatus.complete)
+                    const Icon(Icons.check_circle, color: Colors.green)
+                  else if (widget.state.currentWordInputStatus ==
+                      WordInputStatus.error) ...[
+                    const Icon(Icons.error, color: Colors.red),
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        '완료',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(
+                      Icons.keyboard_return,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            onChanged: _onTextChanged,
             onSubmitted: (_) => _onSubmit(),
             textInputAction: TextInputAction.done,
             // 키보드가 자동으로 올라오도록 보장
