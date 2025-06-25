@@ -16,12 +16,7 @@ class TypingResultScreen extends StatefulWidget {
 
 class _TypingResultScreenState extends State<TypingResultScreen>
     with TickerProviderStateMixin {
-  late AnimationController _celebrationController;
-  late AnimationController _statsController;
   late AnimationController _fadeController;
-
-  late Animation<double> _celebrationAnimation;
-  late Animation<double> _statsAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
@@ -29,55 +24,32 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   void initState() {
     super.initState();
 
-    _celebrationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    _statsController = AnimationController(
+    _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
 
-    _celebrationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _celebrationController, curve: Curves.elasticOut),
-    );
-    _statsAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _statsController, curve: Curves.easeOutBack),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
           CurvedAnimation(parent: _fadeController, curve: Curves.easeOutCubic),
         );
 
-    // 순차적 애니메이션 실행
-    _startAnimations();
+    // 애니메이션 시작
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _fadeController.forward();
+    });
 
     // 햅틱 피드백
     HapticFeedback.lightImpact();
   }
 
-  void _startAnimations() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    _celebrationController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 400));
-    _statsController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 200));
-    _fadeController.forward();
-  }
-
   @override
   void dispose() {
-    _celebrationController.dispose();
-    _statsController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -85,38 +57,24 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              _getPerformanceColor().withOpacity(0.1),
-              AppColorsStyle.surface,
-              _getPerformanceColor().withOpacity(0.05),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 20),
-                  _buildCelebrationSection(),
-                  const SizedBox(height: 32),
-                  _buildMainStats(),
-                  const SizedBox(height: 24),
-                  _buildDetailedStats(),
-                  const SizedBox(height: 24),
-                  _buildPerformanceAnalysis(),
-                  const SizedBox(height: 32),
-                  _buildActionButtons(),
-                  const SizedBox(height: 20),
-                ],
-              ),
+      backgroundColor: AppColorsStyle.surface,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 40),
+                _buildMainResult(),
+                const SizedBox(height: 32),
+                _buildStats(),
+                const SizedBox(height: 32),
+                _buildAnalysis(),
+                const SizedBox(height: 40),
+                _buildActionButtons(),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
         ),
@@ -125,259 +83,92 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColorsStyle.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColorsStyle.shadow.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_rounded),
-              onPressed: () => Navigator.of(context).pop(),
-              color: AppColorsStyle.textPrimary,
-            ),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColorsStyle.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColorsStyle.shadow.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Text(_getModeText(), style: AppTextStyle.labelLarge.primary),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCelebrationSection() {
-    return ScaleTransition(
-      scale: _celebrationAnimation,
-      child: Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColorsStyle.white,
-              AppColorsStyle.white.withOpacity(0.95),
+    return Row(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColorsStyle.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColorsStyle.shadow.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: _getPerformanceColor().withOpacity(0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-            BoxShadow(
-              color: AppColorsStyle.white.withOpacity(0.8),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+            onPressed: () => Navigator.of(context).pop(),
+            color: AppColorsStyle.textPrimary,
+          ),
         ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _getPerformanceColor(),
-                    _getPerformanceColor().withOpacity(0.8),
-                  ],
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: _getPerformanceColor().withOpacity(0.4),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Icon(
-                _getPerformanceIcon(),
-                size: 48,
-                color: AppColorsStyle.white,
-              ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColorsStyle.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            _getModeText(),
+            style: AppTextStyle.labelMedium.copyWith(
+              color: AppColorsStyle.textSecondary,
             ),
-            const SizedBox(height: 20),
-            Text(
-              _getCelebrationText(),
-              style: AppTextStyle.heading2.copyWith(
-                color: _getPerformanceColor(),
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getPerformanceMessage(),
-              style: AppTextStyle.bodyLarge.textSecondary,
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildMainStats() {
-    return ScaleTransition(
-      scale: _statsAnimation,
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildMainStatCard(
-              'WPM',
-              _getWpm(),
-              Icons.speed_rounded,
-              const Color(0xFF2196F3),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildMainStatCard(
-              '정확도',
-              '${_getAccuracy()}%',
-              Icons.check_circle_rounded,
-              const Color(0xFF4CAF50),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: AppTextStyle.heading2.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: AppTextStyle.labelLarge.textSecondary),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailedStats() {
+  Widget _buildMainResult() {
     return SlideTransition(
       position: _slideAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Container(
-          padding: const EdgeInsets.all(20),
+          width: double.infinity,
+          padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
             color: AppColorsStyle.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
                 color: AppColorsStyle.shadow.withOpacity(0.08),
-                blurRadius: 15,
+                blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('상세 통계', style: AppTextStyle.heading4),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDetailStatItem(
-                      Icons.timer_rounded,
-                      '소요 시간',
-                      _getFormattedDuration(),
-                      const Color(0xFFFF9800),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildDetailStatItem(
-                      Icons.language_rounded,
-                      '언어',
-                      _getLanguageText(),
-                      const Color(0xFF9C27B0),
-                    ),
-                  ),
-                ],
+              Text(
+                _getCelebrationText(),
+                style: AppTextStyle.heading2.copyWith(
+                  color: _getPerformanceColor(),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              Text(
+                _getPerformanceMessage(),
+                style: AppTextStyle.bodyLarge.copyWith(
+                  color: AppColorsStyle.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
               Row(
                 children: [
-                  Expanded(
-                    child: _buildDetailStatItem(
-                      Icons.text_fields_rounded,
-                      '글자 수',
-                      widget.params['sentenceLength'] ?? '0',
-                      const Color(0xFF607D8B),
-                    ),
+                  Expanded(child: _buildMainStat('WPM', _getWpm())),
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: AppColorsStyle.border,
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildDetailStatItem(
-                      Icons.error_outline_rounded,
-                      '오타 수',
-                      widget.params['typos'] ?? '0',
-                      const Color(0xFFF44336),
-                    ),
-                  ),
+                  Expanded(child: _buildMainStat('정확도(%)', _getAccuracy())),
                 ],
               ),
             ],
@@ -387,87 +178,134 @@ class _TypingResultScreenState extends State<TypingResultScreen>
     );
   }
 
-  Widget _buildDetailStatItem(
-    IconData icon,
-    String label,
-    String value,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(value, style: AppTextStyle.numberMedium.copyWith(color: color)),
-          Text(
-            label,
-            style: AppTextStyle.labelSmall.textTertiary,
-            textAlign: TextAlign.center,
+  Widget _buildMainStat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: AppTextStyle.heading1.copyWith(
+            color: _getPerformanceColor(),
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: AppTextStyle.labelLarge.copyWith(
+            color: AppColorsStyle.textTertiary,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildPerformanceAnalysis() {
+  Widget _buildStats() {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              _getPerformanceColor().withOpacity(0.05),
-              _getPerformanceColor().withOpacity(0.1),
-            ],
+          color: AppColorsStyle.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColorsStyle.shadow.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '상세 정보',
+              style: AppTextStyle.heading5.copyWith(
+                color: AppColorsStyle.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem('소요 시간', _getFormattedDuration()),
+                ),
+                Expanded(child: _buildStatItem('언어', _getLanguageText())),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    '단어 수',
+                    widget.params['sentenceLength'] ?? '0',
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem('오타 수', widget.params['typos'] ?? '0'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyle.labelMedium.copyWith(
+            color: AppColorsStyle.textTertiary,
           ),
-          borderRadius: BorderRadius.circular(20),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: AppTextStyle.bodyLarge.copyWith(
+            fontWeight: FontWeight.w500,
+            color: AppColorsStyle.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnalysis() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _getPerformanceColor().withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _getPerformanceColor().withOpacity(0.2),
+            color: _getPerformanceColor().withOpacity(0.1),
             width: 1,
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _getPerformanceColor().withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.analytics_rounded,
-                    color: _getPerformanceColor(),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '성능 분석',
-                  style: AppTextStyle.heading4.copyWith(
-                    color: _getPerformanceColor(),
-                  ),
-                ),
-              ],
+            Text(
+              '분석',
+              style: AppTextStyle.heading5.copyWith(
+                color: _getPerformanceColor(),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildPerformanceBar(),
             const SizedBox(height: 16),
             Text(
               _getDetailedAnalysis(),
-              style: AppTextStyle.bodyMedium.textSecondary,
-              textAlign: TextAlign.left,
+              style: AppTextStyle.bodyMedium.copyWith(
+                color: AppColorsStyle.textSecondary,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -482,35 +320,40 @@ class _TypingResultScreenState extends State<TypingResultScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('종합 점수', style: AppTextStyle.labelMedium.textSecondary),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '종합 점수',
+              style: AppTextStyle.labelMedium.copyWith(
+                color: AppColorsStyle.textSecondary,
+              ),
+            ),
+            Text(
+              '${(normalizedScore * 100).toInt()}점',
+              style: AppTextStyle.labelMedium.copyWith(
+                color: _getPerformanceColor(),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Container(
-          height: 8,
+          height: 6,
           decoration: BoxDecoration(
             color: AppColorsStyle.containerBackground,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(3),
           ),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
             widthFactor: normalizedScore,
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _getPerformanceColor(),
-                    _getPerformanceColor().withOpacity(0.8),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(4),
+                color: _getPerformanceColor(),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${(normalizedScore * 100).toInt()}점',
-          style: AppTextStyle.numberMedium.copyWith(
-            color: _getPerformanceColor(),
           ),
         ),
       ],
@@ -522,14 +365,12 @@ class _TypingResultScreenState extends State<TypingResultScreen>
       opacity: _fadeAnimation,
       child: Column(
         children: [
-          // 주요 액션 버튼들
           Row(
             children: [
               Expanded(
                 child: _buildActionButton(
                   '다시 연습',
-                  Icons.refresh_rounded,
-                  AppColorsStyle.primary,
+                  true,
                   () => Navigator.of(context).pop(),
                 ),
               ),
@@ -537,22 +378,17 @@ class _TypingResultScreenState extends State<TypingResultScreen>
               Expanded(
                 child: _buildActionButton(
                   '홈으로',
-                  Icons.home_rounded,
-                  AppColorsStyle.secondary,
+                  false,
                   () => Navigator.of(context).pushReplacementNamed('/home'),
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // 도전장 생성 버튼 (연습 모드일 때만)
-          if (widget.params['type'] == 'practice') _buildChallengeButton(),
-
+          if (widget.params['type'] == 'practice') ...[
+            const SizedBox(height: 16),
+            _buildChallengeButton(),
+          ],
           const SizedBox(height: 12),
-
-          // 결과 공유 버튼
           _buildShareButton(),
         ],
       ),
@@ -561,35 +397,39 @@ class _TypingResultScreenState extends State<TypingResultScreen>
 
   Widget _buildActionButton(
     String text,
-    IconData icon,
-    Color color,
+    bool isPrimary,
     VoidCallback onPressed,
   ) {
-    return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [color, color.withOpacity(0.8)]),
-          borderRadius: BorderRadius.circular(16),
-        ),
+    return Container(
+      height: 50,
+      decoration: BoxDecoration(
+        color: isPrimary ? AppColorsStyle.primary : AppColorsStyle.white,
+        borderRadius: BorderRadius.circular(12),
+        border: isPrimary
+            ? null
+            : Border.all(color: AppColorsStyle.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColorsStyle.shadow.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: AppColorsStyle.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  text,
-                  style: AppTextStyle.buttonMedium.withColor(
-                    AppColorsStyle.white,
-                  ),
-                ),
-              ],
+          borderRadius: BorderRadius.circular(12),
+          child: Center(
+            child: Text(
+              text,
+              style: AppTextStyle.buttonMedium.copyWith(
+                color: isPrimary
+                    ? AppColorsStyle.white
+                    : AppColorsStyle.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -600,47 +440,28 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   Widget _buildChallengeButton() {
     return Container(
       width: double.infinity,
+      height: 50,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColorsStyle.warning.withOpacity(0.3),
-          width: 2,
+          width: 1,
         ),
-        gradient: LinearGradient(
-          colors: [
-            AppColorsStyle.warning.withOpacity(0.1),
-            AppColorsStyle.warning.withOpacity(0.05),
-          ],
-        ),
+        color: AppColorsStyle.warning.withOpacity(0.05),
       ),
-      child: InkWell(
-        onTap: _showCreateChallengeDialog,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColorsStyle.warning.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.emoji_events_rounded,
-                  color: AppColorsStyle.warning,
-                  size: 18,
-                ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showCreateChallengeDialog,
+          borderRadius: BorderRadius.circular(12),
+          child: Center(
+            child: Text(
+              '친구에게 도전장 보내기',
+              style: AppTextStyle.buttonMedium.copyWith(
+                color: AppColorsStyle.warning,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(width: 12),
-              Text(
-                '이 결과로 친구에게 도전장 보내기',
-                style: AppTextStyle.buttonMedium.copyWith(
-                  color: AppColorsStyle.warning,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -650,16 +471,16 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   Widget _buildShareButton() {
     return SizedBox(
       width: double.infinity,
-      child: TextButton.icon(
+      child: TextButton(
         onPressed: _shareResult,
-        icon: const Icon(
-          Icons.share_rounded,
-          color: AppColorsStyle.textSecondary,
-          size: 18,
-        ),
-        label: Text('결과 공유하기', style: AppTextStyle.labelLarge.textSecondary),
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: Text(
+          '결과 공유하기',
+          style: AppTextStyle.labelLarge.copyWith(
+            color: AppColorsStyle.textSecondary,
+          ),
         ),
       ),
     );
@@ -668,7 +489,7 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   // Helper methods
   String _getModeText() {
     final mode = widget.params['mode'] ?? 'word';
-    return mode == 'word' ? '단어 연습 결과' : '장문 연습 결과';
+    return mode == 'word' ? '단어 연습' : '장문 연습';
   }
 
   String _getWpm() {
@@ -698,27 +519,18 @@ class _TypingResultScreenState extends State<TypingResultScreen>
 
   Color _getPerformanceColor() {
     final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
-    if (accuracy >= 95) return const Color(0xFF4CAF50); // Green
-    if (accuracy >= 85) return const Color(0xFF2196F3); // Blue
-    if (accuracy >= 75) return const Color(0xFFFF9800); // Orange
-    if (accuracy >= 65) return const Color(0xFFF44336); // Red
-    return AppColorsStyle.textTertiary;
-  }
-
-  IconData _getPerformanceIcon() {
-    final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
-    if (accuracy >= 95) return Icons.emoji_events_rounded;
-    if (accuracy >= 85) return Icons.star_rounded;
-    if (accuracy >= 75) return Icons.thumb_up_rounded;
-    return Icons.trending_up_rounded;
+    if (accuracy >= 95) return const Color(0xFF10B981); // 초록
+    if (accuracy >= 85) return AppColorsStyle.primary; // 파랑
+    if (accuracy >= 75) return const Color(0xFFF59E0B); // 주황
+    return const Color(0xFFEF4444); // 빨강
   }
 
   String _getCelebrationText() {
     final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
-    if (accuracy >= 95) return '완벽해요! 🎉';
-    if (accuracy >= 85) return '훌륭해요! ⭐';
-    if (accuracy >= 75) return '잘했어요! 👍';
-    return '연습 완료! 💪';
+    if (accuracy >= 95) return '완벽합니다!';
+    if (accuracy >= 85) return '훌륭해요!';
+    if (accuracy >= 75) return '잘했어요!';
+    return '연습 완료!';
   }
 
   String _getPerformanceMessage() {
@@ -726,15 +538,15 @@ class _TypingResultScreenState extends State<TypingResultScreen>
     final wpm = double.tryParse(widget.params['wpm'] ?? '0') ?? 0;
 
     if (accuracy >= 95 && wpm >= 60) {
-      return '정확도와 속도 모두 뛰어난 실력입니다!';
+      return '정확도와 속도 모두 뛰어난 실력입니다';
     } else if (accuracy >= 95) {
-      return '정확도가 정말 훌륭해요!';
+      return '정확도가 정말 훌륭해요';
     } else if (wpm >= 60) {
-      return '타자 속도가 매우 빨라요!';
+      return '타자 속도가 매우 빨라요';
     } else if (accuracy >= 85) {
-      return '좋은 정확도를 보여주고 있어요!';
+      return '좋은 정확도를 보여주고 있어요';
     }
-    return '꾸준한 연습으로 더 나아질 수 있어요!';
+    return '꾸준한 연습으로 더 나아질 수 있어요';
   }
 
   String _getDetailedAnalysis() {
@@ -775,28 +587,12 @@ class _TypingResultScreenState extends State<TypingResultScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColorsStyle.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.emoji_events_rounded,
-                color: AppColorsStyle.warning,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('도전장 생성'),
-          ],
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('도전장 생성'),
         content: const Text(
           '이 연습 결과를 바탕으로 친구에게 도전장을 보내시겠습니까?\n'
           '친구는 같은 문장으로 연습한 후 결과를 비교할 수 있습니다.',
+          style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
@@ -811,7 +607,7 @@ class _TypingResultScreenState extends State<TypingResultScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColorsStyle.warning,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
             child: const Text('도전장 만들기'),
@@ -824,16 +620,14 @@ class _TypingResultScreenState extends State<TypingResultScreen>
   void _shareResult() {
     final mode = widget.params['mode'] == 'word' ? '단어' : '장문';
     final shareText =
-        '''
-🎯 토도독 $mode 연습 결과
+        '''🎯 토도독 $mode 연습 결과
 
 📊 WPM: ${_getWpm()}
 🎯 정확도: ${_getAccuracy()}%
 ⏱️ 시간: ${_getFormattedDuration()}
 🌐 언어: ${_getLanguageText()}
 
-${_getCelebrationText()}
-    ''';
+${_getCelebrationText()}''';
 
     // TODO: 실제 공유 기능 구현
     print('공유할 텍스트: $shareText');
@@ -841,8 +635,8 @@ ${_getCelebrationText()}
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('결과가 클립보드에 복사되었습니다!'),
-        backgroundColor: AppColorsStyle.success,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColorsStyle.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         behavior: SnackBarBehavior.floating,
       ),
     );
