@@ -835,14 +835,6 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
                     const SizedBox(width: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        '완료',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                     ),
                   ],
                   const Padding(
