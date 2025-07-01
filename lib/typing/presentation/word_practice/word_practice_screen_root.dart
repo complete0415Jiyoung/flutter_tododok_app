@@ -8,8 +8,15 @@ import 'word_practice_action.dart';
 
 class WordPracticeScreenRoot extends ConsumerStatefulWidget {
   final String? language;
+  final String? sentenceId;
+  final bool? random;
 
-  const WordPracticeScreenRoot({super.key, this.language});
+  const WordPracticeScreenRoot({
+    super.key,
+    this.language,
+    this.sentenceId,
+    this.random,
+  });
 
   @override
   ConsumerState<WordPracticeScreenRoot> createState() =>
@@ -24,9 +31,24 @@ class _WordPracticeScreenRootState
     // 위젯이 생성된 후 초기화 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final language = widget.language ?? 'ko';
-      ref
-          .read(wordPracticeNotifierProvider.notifier)
-          .onAction(WordPracticeAction.initialize(language));
+      final notifier = ref.read(wordPracticeNotifierProvider.notifier);
+
+      // 파라미터에 따른 초기화 분기
+      if (widget.sentenceId != null) {
+        // 특정 문장으로 초기화
+        notifier.onAction(
+          WordPracticeAction.initializeWithSentence(
+            language,
+            widget.sentenceId!,
+          ),
+        );
+      } else if (widget.random == true) {
+        // 랜덤 문장으로 초기화
+        notifier.onAction(WordPracticeAction.initializeWithRandom(language));
+      } else {
+        // 기본 초기화
+        notifier.onAction(WordPracticeAction.initialize(language));
+      }
     });
   }
 
@@ -35,18 +57,26 @@ class _WordPracticeScreenRootState
     final state = ref.watch(wordPracticeNotifierProvider);
     final notifier = ref.watch(wordPracticeNotifierProvider.notifier);
 
-    // 게임 오버 시 결과 저장 완료 후 결과 화면으로 이동할 수 있도록 리스너 추가
+    // 게임 상태 변화 리스너
     ref.listen(wordPracticeNotifierProvider, (previous, next) {
-      // 게임이 방금 끝났을 때의 처리 (필요시)
+      // 게임이 완료되었을 때의 처리
       if (previous?.isGameOver == false && next.isGameOver == true) {
-        // 게임 오버 시 추가 처리 (예: 효과음, 진동 등)
+        // 게임 완료 시 햅틱 피드백이나 사운드 효과 등을 여기서 처리할 수 있음
+        // HapticFeedback.notificationFeedback();
+      }
+
+      // 힌트 사용 시 처리
+      if (previous?.hintsUsed != next.hintsUsed &&
+          next.hintsUsed > (previous?.hintsUsed ?? 0)) {
+        // 힌트 사용 시 효과
+        // HapticFeedback.lightImpact();
       }
     });
 
     return PopScope(
       // 뒤로가기 버튼 눌렀을 때 게임이 실행 중이면 일시정지
       canPop: !state.isGameRunning,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop && state.isGameRunning) {
           notifier.onAction(const WordPracticeAction.pauseGame());
         }
@@ -56,14 +86,20 @@ class _WordPracticeScreenRootState
         onAction: (action) async {
           switch (action) {
             case NavigateToResult():
-              // TODO: 결과 화면으로 이동 (게임 결과 포함)
+              // 결과 화면으로 이동 (게임 결과 포함)
               final queryParams = {
-                'score': state.score.toString(),
-                'level': state.level.toString(),
+                'type': 'practice',
+                'mode': 'word',
                 'wpm': state.wpm.toStringAsFixed(1),
                 'accuracy': state.accuracy.toStringAsFixed(1),
+                'duration': state.elapsedSeconds.toStringAsFixed(1),
+                'language': state.language,
+                'sentenceLength': state.wordSequence.length.toString(),
+                'typos': state.incorrectWordsCount.toString(),
+                'score': state.score.toString(),
                 'correctWords': state.correctWordsCount.toString(),
-                'gameTime': state.elapsedSeconds.toStringAsFixed(1),
+                'totalWords': state.wordSequence.length.toString(),
+                'hintsUsed': state.hintsUsed.toString(),
               };
               await context.push(
                 Uri(
@@ -71,23 +107,51 @@ class _WordPracticeScreenRootState
                   queryParameters: queryParams,
                 ).toString(),
               );
+
             case NavigateToHome():
               // 홈으로 돌아가기 (게임 정리)
               context.go('/home');
+
+            case NavigateToSentenceSelection():
+              // 문장 선택 화면으로 이동
+              await context.push(
+                '/typing/sentence-selection?mode=word&language=${state.language}',
+              );
+
+            // 모든 게임 로직은 notifier에게 위임
+            case Initialize():
+            case InitializeWithSentence():
+            case InitializeWithRandom():
             case StartGame():
             case PauseGame():
             case ResumeGame():
-            case EndGame():
             case RestartGame():
-            case SpawnWord():
-            case UpdateFallingWords():
+            case EndGame():
             case UpdateInput():
-            case SubmitInput():
-            case WordMatched():
-            case WordMissed():
-            case LevelUp():
+            case SubmitCurrentWord():
+            case SkipCurrentWord():
+            case ClearInput():
+            case MoveToNextWord():
+            case MoveToPreviousWord():
+            case CompleteCurrentWord():
+            case ShowHint():
+            case HideHint():
+            case UseHint():
+            case UpdateStatistics():
+            case CalculateWpm():
+            case CalculateAccuracy():
+            case LoadWordSequence():
+            case GenerateNewSequence():
+            case CompleteSequence():
             case ChangeLanguage():
-            case Initialize():
+            case SetTargetWordCount():
+            case HandleError():
+            case ClearError():
+            case CheckGameCompletion():
+            case ValidateInput():
+            case StartTimer():
+            case StopTimer():
+            case UpdateTimer():
               // 모든 게임 로직은 notifier에게 위임
               await notifier.onAction(action);
           }
