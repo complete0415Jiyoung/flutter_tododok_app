@@ -127,6 +127,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
+      typingSpeed: 0.0, // 새로운 분당 타수 초기화
       accuracy: 0.0,
       cpm: 0.0,
       characterStats: [],
@@ -155,6 +156,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
           incorrectCharacters: 0,
           totalTypos: 0,
           wpm: 0.0,
+          typingSpeed: 0.0, // 새로운 분당 타수 초기화
           accuracy: 0.0,
           cpm: 0.0,
           characterStats: [],
@@ -182,6 +184,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
+      typingSpeed: 0.0, // 새로운 분당 타수 초기화
       accuracy: 0.0,
       cpm: 0.0,
       characterStats: [],
@@ -221,6 +224,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
+      typingSpeed: 0.0, // 새로운 분당 타수 초기화
       accuracy: 0.0,
       cpm: 0.0,
       characterStats: [],
@@ -348,19 +352,25 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
 
     if (elapsedMinutes <= 0) return;
 
-    // CPM 계산 (분당 글자 수)
-    final cpm = state.correctCharacters / elapsedMinutes;
+    // 분당 타수 계산 (CPM - Characters Per Minute) - 핵심 변경!
+    final typingSpeed = state.correctCharacters / elapsedMinutes;
 
-    // WPM 계산 (평균 5글자 = 1단어)
-    final wpm = cpm / 5.0;
+    // 기존 WPM 계산 (호환성 유지용 - 5글자 = 1단어 가정)
+    final wpm = typingSpeed / 5.0;
 
     // 정확도 계산
     final totalAttempts = state.correctCharacters + state.incorrectCharacters;
     final accuracy = totalAttempts > 0
-        ? (state.correctCharacters / totalAttempts) * 100
+        ? (state.correctCharacters / totalAttempts) * 100.0
         : 0.0;
 
-    state = state.copyWith(cpm: cpm, wpm: wpm, accuracy: accuracy);
+    // 상태 업데이트 - typingSpeed를 메인으로 사용
+    state = state.copyWith(
+      typingSpeed: typingSpeed, // 새로운 분당 타수 필드 (메인)
+      wpm: wpm, // 기존 호환성 유지
+      cpm: typingSpeed, // CPM (typingSpeed와 동일)
+      accuracy: accuracy,
+    );
   }
 
   Future<void> _changeLanguage(String language) async {
@@ -378,6 +388,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
+      typingSpeed: 0.0, // 새로운 분당 타수 초기화
       accuracy: 0.0,
       cpm: 0.0,
       characterStats: [],
@@ -398,7 +409,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       mode: 'paragraph',
       sentenceId: state.currentSentence!.id,
       sentenceContent: state.currentSentence!.content,
-      wpm: state.wpm,
+      typingSpeed: state.typingSpeed, // 새로운 분당 타수 필드 사용
       accuracy: state.accuracy,
       typoCount: state.totalTypos,
       totalCharacters: state.totalSentenceLength,

@@ -425,8 +425,8 @@ class _ParagraphPracticeScreenState extends State<ParagraphPracticeScreen>
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(
-            'WPM',
-            widget.state.wpm.toStringAsFixed(0),
+            '분당 타수', // WPM → 분당 타수로 변경
+            widget.state.typingSpeed.toStringAsFixed(0), // typingSpeed 사용
             Icons.speed,
           ),
           _buildStatItem(

@@ -160,22 +160,36 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
 
     state = state.copyWith(
       isGameRunning: true,
-      isPaused: false,
       isGameOver: false,
+      isPaused: false,
       gameStartTime: DateTime.now(),
+      currentWordIndex: 0,
+      currentWordInput: '',
+      correctWordsCount: 0,
+      incorrectWordsCount: 0,
+      skippedWordsCount: 0,
+      totalCharactersTyped: 0,
+      wpm: 0.0,
+      typingSpeed: 0.0, // 새로운 분당 타수 초기화
+      accuracy: 0.0,
+      score: 0,
+      hintsUsed: 0,
+      hintsRemaining: 3,
+      showHint: false,
     );
+
     _startTimer();
   }
 
   void _pauseGame() {
-    if (!state.isGameRunning) return;
+    if (!state.isGameRunning || state.isPaused) return;
 
     state = state.copyWith(isPaused: true);
     _stopTimer();
   }
 
   void _resumeGame() {
-    if (!state.isPaused) return;
+    if (!state.isGameRunning || !state.isPaused) return;
 
     state = state.copyWith(isPaused: false);
     _startTimer();
@@ -183,72 +197,36 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
 
   void _restartGame() {
     _stopTimer();
-
-    // 현재 시퀀스를 초기 상태로 리셋
-    final resetSequence = state.wordSequence
-        .map(
-          (word) => word.copyWith(
-            status: WordStatus.pending,
-            userInput: '',
-            attempts: 0,
-            completedAt: null,
-            timeTaken: 0,
-            wasSkipped: false,
-            usedHint: false,
-          ),
-        )
-        .toList();
-
-    // 상태를 완전히 초기화하되, 준비 상태로 설정
-    state = state.copyWith(
-      wordSequence: resetSequence,
-      currentWordIndex: 0,
-      currentWordInput: '',
-      isGameRunning: false, // 게임 중지
-      isPaused: false,
-      isGameOver: false,
-      gameStartTime: null,
-      correctWordsCount: 0,
-      incorrectWordsCount: 0,
-      skippedWordsCount: 0,
-      totalCharactersTyped: 0,
-      wpm: 0,
-      accuracy: 0,
-      hintsUsed: 0,
-      hintsRemaining: 3,
-      showHint: false,
-      score: 0,
-    );
-
-    // 짧은 대기 후 자동으로 게임 준비 상태로 전환
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (state.wordSequence.isNotEmpty) {
-        // 자동으로 카운트다운이 시작되도록 상태 설정
-        // (WordPracticeScreen에서 카운트다운 감지하여 자동 시작)
-      }
-    });
+    _startGame();
   }
 
   void _endGame() {
     _stopTimer();
-    state = state.copyWith(isGameRunning: false, isGameOver: true);
+
+    state = state.copyWith(
+      isGameRunning: false,
+      isGameOver: true,
+      isPaused: false,
+    );
+
+    // 최종 통계 계산
+    _updateStatistics();
+
+    // 결과 자동 저장
     _saveResult();
   }
 
   void _updateInput(String input) {
+    if (!state.isGameRunning || state.isPaused || state.isGameOver) return;
+
     state = state.copyWith(currentWordInput: input);
-    _validateInput();
   }
 
   void _submitCurrentWord() {
     if (state.currentWord == null) return;
 
-    final currentWord = state.currentWord!;
-    final isCorrect =
-        state.currentWordInput.toLowerCase() == currentWord.text.toLowerCase();
-    final timeTaken = state.gameStartTime != null
-        ? DateTime.now().difference(state.gameStartTime!).inSeconds.toDouble()
-        : 0.0;
+    final isCorrect = state.currentWordInput.trim() == state.currentWord!.text;
+    final timeTaken = state.elapsedSeconds; // 간단한 계산
 
     _completeCurrentWord(isCorrect, timeTaken);
   }
@@ -256,17 +234,7 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   void _skipCurrentWord() {
     if (state.currentWord == null) return;
 
-    final updatedWord = state.currentWord!.copyWith(
-      status: WordStatus.skipped,
-      wasSkipped: true,
-      completedAt: DateTime.now(),
-    );
-
-    final updatedSequence = List<PracticeWord>.from(state.wordSequence);
-    updatedSequence[state.currentWordIndex] = updatedWord;
-
     state = state.copyWith(
-      wordSequence: updatedSequence,
       skippedWordsCount: state.skippedWordsCount + 1,
       currentWordInput: '',
     );
@@ -303,26 +271,13 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   void _completeCurrentWord(bool isCorrect, double timeTaken) {
     if (state.currentWord == null) return;
 
-    final updatedWord = state.currentWord!.copyWith(
-      status: isCorrect ? WordStatus.correct : WordStatus.incorrect,
-      userInput: state.currentWordInput,
-      attempts: state.currentWord!.attempts + 1,
-      completedAt: DateTime.now(),
-      timeTaken: timeTaken,
-      usedHint: state.showHint,
-    );
-
-    final updatedSequence = List<PracticeWord>.from(state.wordSequence);
-    updatedSequence[state.currentWordIndex] = updatedWord;
-
     state = state.copyWith(
-      wordSequence: updatedSequence,
       correctWordsCount: isCorrect
           ? state.correctWordsCount + 1
           : state.correctWordsCount,
-      incorrectWordsCount: isCorrect
-          ? state.incorrectWordsCount
-          : state.incorrectWordsCount + 1,
+      incorrectWordsCount: !isCorrect
+          ? state.incorrectWordsCount + 1
+          : state.incorrectWordsCount,
       totalCharactersTyped:
           state.totalCharactersTyped + state.currentWordInput.length,
       score: isCorrect
@@ -374,8 +329,17 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   void _calculateWpm() {
     final elapsedMinutes = state.elapsedSeconds / 60.0;
     if (elapsedMinutes > 0) {
+      // 분당 타수 계산 (실제로는 CPM)
+      final totalCharactersTyped = state.totalCharactersTyped;
+      final typingSpeed = totalCharactersTyped / elapsedMinutes;
+
+      // 기존 WPM 계산 (호환성 유지 - 단어 기준)
       final wordsPerMinute = state.correctWordsCount / elapsedMinutes;
-      state = state.copyWith(wpm: wordsPerMinute);
+
+      state = state.copyWith(
+        typingSpeed: typingSpeed, // 새로운 분당 타수 필드
+        wpm: wordsPerMinute, // 기존 WPM 유지 (단어 기준)
+      );
     }
   }
 
@@ -487,7 +451,7 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
         mode: 'word',
         sentenceId: state.currentSentenceId,
         sentenceContent: state.currentSentenceText,
-        wpm: state.wpm,
+        typingSpeed: state.typingSpeed, // 새로운 분당 타수 필드 사용
         accuracy: state.accuracy,
         typoCount: state.incorrectWordsCount,
         totalCharacters: state.totalCharactersTyped,

@@ -170,7 +170,7 @@ class HomeScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _buildQuickStat('평균 WPM', '45.2'),
+                _buildQuickStat('평균 분당 타수', '226타수'),
                 Container(
                   width: 1,
                   height: 30,

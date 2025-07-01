@@ -198,7 +198,9 @@ class _TypingResultScreenState extends ConsumerState<TypingResultScreen>
               const SizedBox(height: 32),
               Row(
                 children: [
-                  Expanded(child: _buildMainStat('WPM', _getWpm())),
+                  Expanded(
+                    child: _buildMainStat('분당 타수', _getTypingSpeed()),
+                  ), // WPM → 분당 타수
                   Container(
                     width: 1,
                     height: 60,
@@ -220,16 +222,15 @@ class _TypingResultScreenState extends ConsumerState<TypingResultScreen>
       children: [
         Text(
           value,
-          style: AppTextStyle.heading1.copyWith(
-            color: _getPerformanceColor(),
-            fontWeight: FontWeight.w700,
+          style: AppTextStyle.numberMedium.copyWith(
+            color: AppColorsStyle.primary,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           label,
-          style: AppTextStyle.labelLarge.copyWith(
-            color: AppColorsStyle.textTertiary,
+          style: AppTextStyle.bodySmall.copyWith(
+            color: AppColorsStyle.onSurfaceVariant,
           ),
         ),
       ],
@@ -438,7 +439,19 @@ class _TypingResultScreenState extends ConsumerState<TypingResultScreen>
     );
   }
 
-  // Helper methods
+  String _getTypingSpeed() {
+    // typingSpeed 파라미터가 있으면 사용, 없으면 wpm에서 변환
+    final typingSpeed = double.tryParse(widget.params['typingSpeed'] ?? '0');
+    if (typingSpeed != null && typingSpeed > 0) {
+      return typingSpeed.toStringAsFixed(0);
+    }
+
+    // 기존 wpm이 있으면 분당 타수로 변환 (대략 x5)
+    final wpm = double.tryParse(widget.params['wpm'] ?? '0') ?? 0;
+    return (wpm * 5).toStringAsFixed(0);
+  }
+
+  //Helper methods
   String _getModeText() {
     final mode = widget.params['mode'] ?? 'word';
     return mode == 'word' ? '단어 연습' : '장문 연습';
@@ -487,18 +500,52 @@ class _TypingResultScreenState extends ConsumerState<TypingResultScreen>
 
   String _getPerformanceMessage() {
     final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
-    final wpm = double.tryParse(widget.params['wpm'] ?? '0') ?? 0;
+    final typingSpeed = double.tryParse(_getTypingSpeed()) ?? 0;
 
-    if (accuracy >= 95 && wpm >= 60) {
+    if (accuracy >= 95 && typingSpeed >= 300) {
       return '정확도와 속도 모두 뛰어난 실력입니다';
     } else if (accuracy >= 95) {
       return '정확도가 정말 훌륭해요';
-    } else if (wpm >= 60) {
+    } else if (typingSpeed >= 300) {
       return '타자 속도가 매우 빨라요';
     } else if (accuracy >= 85) {
       return '좋은 정확도를 보여주고 있어요';
     }
     return '꾸준한 연습으로 더 나아질 수 있어요';
+  }
+
+  String _getDetailedAnalysis() {
+    final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
+    final typingSpeed = double.tryParse(_getTypingSpeed()) ?? 0;
+    final typos = int.tryParse(widget.params['typos'] ?? '0') ?? 0;
+
+    List<String> insights = [];
+
+    if (accuracy >= 95) {
+      insights.add('정확도가 매우 우수합니다.');
+    } else if (accuracy >= 85) {
+      insights.add('정확도가 좋은 편입니다.');
+    } else {
+      insights.add('정확도 향상을 위해 천천히 정확하게 타이핑해보세요.');
+    }
+
+    if (typingSpeed >= 300) {
+      insights.add('타자 속도가 빠른 편입니다.');
+    } else if (typingSpeed >= 200) {
+      insights.add('타자 속도가 평균적입니다.');
+    } else {
+      insights.add('타자 속도 향상을 위해 더 많은 연습이 필요합니다.');
+    }
+
+    if (typos == 0) {
+      insights.add('오타 없이 완벽하게 입력했습니다!');
+    } else if (typos <= 2) {
+      insights.add('오타가 적어 좋습니다.');
+    } else {
+      insights.add('오타를 줄이기 위해 조금 더 신중하게 입력해보세요.');
+    }
+
+    return insights.join(' ');
   }
 
   void _showCreateChallengeDialog() {

@@ -6,18 +6,18 @@ part 'member.freezed.dart';
 @freezed
 class Member with _$Member {
   const Member({
-    required this.averageWpm,
+    required this.averageTypingSpeed, // averageWpm → averageTypingSpeed로 변경
     required this.averageAccuracy,
     required this.totalPracticeCount,
     required this.totalChallengeCount,
     required this.challengeWinCount,
-    required this.bestWpm,
+    required this.bestTypingSpeed, // bestWpm → bestTypingSpeed로 변경
     required this.bestAccuracy,
   });
 
-  /// 평균 타자 속도 (WPM)
+  /// 평균 타자 속도 (분당 타수 - CPM)
   @override
-  final double averageWpm;
+  final double averageTypingSpeed;
 
   /// 평균 정확도 (%)
   @override
@@ -35,9 +35,9 @@ class Member with _$Member {
   @override
   final int challengeWinCount;
 
-  /// 최고 타자 속도 (WPM)
+  /// 최고 타자 속도 (분당 타수 - CPM)
   @override
-  final double bestWpm;
+  final double bestTypingSpeed;
 
   /// 최고 정확도 (%)
   @override
@@ -47,4 +47,11 @@ class Member with _$Member {
   double get winRate => totalChallengeCount > 0
       ? (challengeWinCount / totalChallengeCount) * 100
       : 0.0;
+
+  // 호환성을 위한 getter (기존 코드와의 compatibility)
+  @Deprecated('Use averageTypingSpeed instead')
+  double get averageWpm => averageTypingSpeed / 5.0; // 대략적인 변환 (5글자 = 1단어)
+
+  @Deprecated('Use bestTypingSpeed instead')
+  double get bestWpm => bestTypingSpeed / 5.0; // 대략적인 변환 (5글자 = 1단어)
 }

@@ -24,6 +24,7 @@ class WordPracticeState with _$WordPracticeState {
     this.skippedWordsCount = 0,
     this.totalCharactersTyped = 0,
     this.wpm = 0,
+    this.typingSpeed = 0.0,
     this.accuracy = 0,
     this.targetWordCount = 10,
     this.hintsUsed = 0,
@@ -33,28 +34,52 @@ class WordPracticeState with _$WordPracticeState {
     this.currentSentenceId = '',
   });
 
+  @override
   final AsyncValue<List<Sentence>> availableSentences;
+  @override
   final List<PracticeWord> wordSequence;
+  @override
   final int currentWordIndex;
+  @override
   final String currentWordInput;
+  @override
   final int score;
+  @override
   final int level;
+  @override
   final bool isGameRunning;
+  @override
   final bool isGameOver;
+  @override
   final bool isPaused;
+  @override
   final DateTime? gameStartTime;
+  @override
   final String language;
+  @override
   final int correctWordsCount;
+  @override
   final int incorrectWordsCount;
+  @override
   final int skippedWordsCount;
+  @override
   final int totalCharactersTyped;
-  final double wpm;
+  @override
+  final double wpm; // 기존 WPM 필드 (호환성)
+  final double typingSpeed; // 새로운 분당 타수 필드
+  @override
   final double accuracy;
+  @override
   final int targetWordCount; // 한 시퀀스당 목표 단어 수
+  @override
   final int hintsUsed;
+  @override
   final int hintsRemaining;
+  @override
   final bool showHint;
+  @override
   final String currentSentenceText;
+  @override
   final String currentSentenceId;
 
   /// 현재 게임 진행 시간 (초)
@@ -134,14 +159,23 @@ class PracticeWord with _$PracticeWord {
     this.usedHint = false,
   });
 
+  @override
   final String text;
+  @override
   final int position; // 문장 내 위치
+  @override
   final WordStatus status;
+  @override
   final String userInput; // 사용자가 입력한 내용
+  @override
   final int attempts; // 시도 횟수
+  @override
   final DateTime? completedAt; // 완료 시간
+  @override
   final double timeTaken; // 입력 소요 시간 (초)
+  @override
   final bool wasSkipped; // 건너뛰기 여부
+  @override
   final bool usedHint; // 힌트 사용 여부
 }
 

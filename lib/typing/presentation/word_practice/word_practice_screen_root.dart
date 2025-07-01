@@ -90,7 +90,7 @@ class _WordPracticeScreenRootState
               final queryParams = {
                 'type': 'practice',
                 'mode': 'word',
-                'wpm': state.wpm.toStringAsFixed(1),
+                'typingSpeed': state.typingSpeed.toStringAsFixed(0),
                 'accuracy': state.accuracy.toStringAsFixed(1),
                 'duration': state.elapsedSeconds.toStringAsFixed(1),
                 'language': state.language,

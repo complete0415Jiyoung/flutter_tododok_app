@@ -36,8 +36,11 @@ abstract interface class TypingDataSource {
     String mode,
   );
 
-  /// 최고 기록 조회 (WPM 기준)
-  Future<TypingResultDto?> fetchBestWpmResult(String userId, String mode);
+  /// 최고 기록 조회 (분당 타수 기준) - 메서드명 변경
+  Future<TypingResultDto?> fetchBestTypingSpeedResult(
+    String userId,
+    String mode,
+  );
 
   /// 최고 정확도 기록 조회
   Future<TypingResultDto?> fetchBestAccuracyResult(String userId, String mode);

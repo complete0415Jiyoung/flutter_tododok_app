@@ -82,7 +82,9 @@ class _ParagraphPracticeScreenRootState
               final queryParams = {
                 'type': 'practice',
                 'mode': 'paragraph',
-                'wpm': state.wpm.toStringAsFixed(1),
+                'typingSpeed': state.typingSpeed.toStringAsFixed(
+                  0,
+                ), // wmp → typingSpeed
                 'accuracy': state.accuracy.toStringAsFixed(1),
                 'duration': state.elapsedSeconds.toStringAsFixed(1),
                 'language': state.language,

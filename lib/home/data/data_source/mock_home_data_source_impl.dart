@@ -1,4 +1,4 @@
-// lib/home/data/data_source/mock_home_data_source.dart
+// lib/home/data/data_source/mock_home_data_source_impl.dart
 import '../dto/member_dto.dart';
 import 'home_data_source.dart';
 
@@ -9,12 +9,12 @@ class MockHomeDataSource implements HomeDataSource {
     await Future.delayed(const Duration(milliseconds: 800));
 
     return const MemberDto(
-      averageWpm: 65.4,
+      averageWpm: 327.0, // 분당 타수로 변경 (기존 65.4 * 5)
       averageAccuracy: 92.8,
       totalPracticeCount: 47,
       totalChallengeCount: 12,
       challengeWinCount: 8,
-      bestWpm: 89.2,
+      bestWpm: 446.0, // 분당 타수로 변경 (기존 89.2 * 5)
       bestAccuracy: 98.5,
     );
   }
@@ -24,9 +24,9 @@ class MockHomeDataSource implements HomeDataSource {
     await Future.delayed(const Duration(milliseconds: 500));
 
     return [
-      '단어 연습 - 78 WPM, 94.2%',
-      '장문 연습 - 62 WPM, 89.7%',
-      '도전장 승리 - 71 WPM, 91.3%',
+      '단어 연습 - 390 타수, 94.2%', // 분당 타수로 표시 변경
+      '장문 연습 - 310 타수, 89.7%', // 분당 타수로 표시 변경
+      '도전장 승리 - 355 타수, 91.3%', // 분당 타수로 표시 변경
     ];
   }
 

@@ -14,7 +14,7 @@ class HomeState with _$HomeState {
     this.isInitialized = false,
   });
 
-  /// 사용자 통계 정보 (평균 WPM, 정확도 등)
+  /// 사용자 통계 정보 (평균 분당 타수, 정확도 등) - 주석 수정
   @override
   final AsyncValue<Member> memberStats;
 

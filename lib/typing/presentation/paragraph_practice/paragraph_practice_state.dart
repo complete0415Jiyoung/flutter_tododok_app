@@ -21,7 +21,8 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
     this.correctCharacters = 0,
     this.incorrectCharacters = 0,
     this.totalTypos = 0,
-    this.wpm = 0.0,
+    this.wpm = 0.0, // 기존 필드 유지
+    this.typingSpeed = 0.0, // 새 필드 추가 - 분당 타수
     this.accuracy = 0.0,
     this.cpm = 0.0,
     this.characterStats = const [],
@@ -54,6 +55,9 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
   /// 일시정지 여부
   @override
   final bool isPaused;
+
+  @override
+  final double typingSpeed;
 
   /// 연습 시작 시간
   @override
@@ -165,18 +169,15 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
   /// 우수한 정확도인지 (90% 이상)
   bool get isGoodAccuracy => accuracy >= 90.0;
 
-  /// 빠른 속도인지 (40 WPM 이상)
-  bool get isFastSpeed => wpm >= 40.0;
-
   /// 완벽한 타자인지 (100% 정확도)
-  bool get isPerfect => accuracy == 100.0;
+  bool get isFastSpeed => typingSpeed >= 300.0;
 
   /// 타자 수준 평가
   String get typingLevel {
-    if (wpm < 20) return '초급';
-    if (wpm < 40) return '중급';
-    if (wpm < 60) return '고급';
-    if (wpm < 80) return '상급';
+    if (typingSpeed < 100) return '초급';
+    if (typingSpeed < 200) return '중급';
+    if (typingSpeed < 300) return '고급';
+    if (typingSpeed < 400) return '상급';
     return '전문가';
   }
 

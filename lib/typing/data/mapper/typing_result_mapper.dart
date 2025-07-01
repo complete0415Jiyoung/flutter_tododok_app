@@ -11,7 +11,7 @@ extension TypingResultDtoMapper on TypingResultDto {
       mode: mode ?? 'word',
       sentenceId: sentenceId ?? '',
       sentenceContent: sentenceContent ?? '',
-      wpm: (wpm ?? 0).toDouble(),
+      typingSpeed: (wpm ?? 0).toDouble() * 5.0, // WPM을 분당 타수로 변환
       accuracy: (accuracy ?? 0).toDouble(),
       typoCount: (typoCount ?? 0).toInt(),
       totalCharacters: (totalCharacters ?? 0).toInt(),
@@ -32,7 +32,7 @@ extension TypingResultModelMapper on TypingResult {
       mode: mode,
       sentenceId: sentenceId,
       sentenceContent: sentenceContent,
-      wpm: wpm,
+      wpm: typingSpeed / 5.0, // 분당 타수를 WPM으로 변환 (Firebase 호환성)
       accuracy: accuracy,
       typoCount: typoCount,
       totalCharacters: totalCharacters,

@@ -133,7 +133,7 @@ class TypingRepositoryImpl implements TypingRepository {
     String mode,
   ) async {
     try {
-      final dto = await _dataSource.fetchBestWpmResult(userId, mode);
+      final dto = await _dataSource.fetchBestTypingSpeedResult(userId, mode);
       final result = dto?.toModel();
       return Result.success(result);
     } catch (e, st) {
@@ -148,6 +148,24 @@ class TypingRepositoryImpl implements TypingRepository {
   ) async {
     try {
       final dto = await _dataSource.fetchBestAccuracyResult(userId, mode);
+      final result = dto?.toModel();
+      return Result.success(result);
+    } catch (e, st) {
+      return Result.error(mapExceptionToFailure(e, st));
+    }
+  }
+
+  @override
+  Future<Result<TypingResult?>> getBestTypingSpeedResult(
+    // 메서드명 변경
+    String userId,
+    String mode,
+  ) async {
+    try {
+      final dto = await _dataSource.fetchBestTypingSpeedResult(
+        userId,
+        mode,
+      ); // 메서드명 변경
       final result = dto?.toModel();
       return Result.success(result);
     } catch (e, st) {

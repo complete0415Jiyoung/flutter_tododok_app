@@ -12,7 +12,7 @@ class TypingResult with _$TypingResult {
     required this.mode,
     required this.sentenceId,
     required this.sentenceContent,
-    required this.wpm,
+    required this.typingSpeed, // wpm → typingSpeed로 변경
     required this.accuracy,
     required this.typoCount,
     required this.totalCharacters,
@@ -46,9 +46,9 @@ class TypingResult with _$TypingResult {
   @override
   final String sentenceContent;
 
-  /// 타자 속도 (Words Per Minute)
+  /// 타자 속도 (분당 타수 - Characters Per Minute)
   @override
-  final double wpm;
+  final double typingSpeed;
 
   /// 정확도 (0-100)
   @override
@@ -99,8 +99,8 @@ class TypingResult with _$TypingResult {
   /// 우수한 정확도인지 확인 (90% 이상)
   bool get isGoodAccuracy => accuracy >= 90.0;
 
-  /// 빠른 속도인지 확인 (60 WPM 이상)
-  bool get isFastSpeed => wpm >= 60.0;
+  /// 빠른 속도인지 확인 (300 타수 이상) - 기준 변경
+  bool get isFastSpeed => typingSpeed >= 300.0;
 
   /// 완벽한 타자인지 확인 (100% 정확도)
   bool get isPerfect => accuracy == 100.0;
@@ -109,6 +109,10 @@ class TypingResult with _$TypingResult {
   double get errorRate =>
       totalCharacters > 0 ? (typoCount / totalCharacters) * 100 : 0.0;
 
-  /// 분당 정확한 문자 수 (CPM - Characters Per Minute)
-  double get cpm => duration > 0 ? (correctCharacters / duration) * 60 : 0.0;
+  /// 분당 정확한 문자 수 (CPM - Characters Per Minute) - 이제 typingSpeed와 동일한 개념
+  double get cpm => typingSpeed;
+
+  // 호환성을 위한 getter (기존 코드와의 compatibility)
+  @Deprecated('Use typingSpeed instead')
+  double get wpm => typingSpeed / 5.0; // 대략적인 변환 (5글자 = 1단어)
 }

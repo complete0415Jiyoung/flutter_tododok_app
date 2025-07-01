@@ -10,11 +10,15 @@ class GetBestRecordsUseCase {
   GetBestRecordsUseCase({required TypingRepository repository})
     : _repository = repository;
 
-  Future<AsyncValue<TypingResult?>> getBestWpm(
+  Future<AsyncValue<TypingResult?>> getBestTypingSpeed(
+    // 메서드명 변경
     String userId,
     String mode,
   ) async {
-    final result = await _repository.getBestWpmResult(userId, mode);
+    final result = await _repository.getBestTypingSpeedResult(
+      userId,
+      mode,
+    ); // 메서드명 변경
 
     switch (result) {
       case Success(:final data):

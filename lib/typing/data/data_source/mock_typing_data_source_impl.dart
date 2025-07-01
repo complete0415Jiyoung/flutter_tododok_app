@@ -241,4 +241,25 @@ class MockTypingDataSourceImpl implements TypingDataSource {
     userResults.sort((a, b) => (b.accuracy ?? 0).compareTo(a.accuracy ?? 0));
     return userResults.first;
   }
+
+  @override
+  Future<TypingResultDto?> fetchBestTypingSpeedResult(
+    // 메서드명 변경
+    String userId,
+    String mode,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    final userResults = _typingResults
+        .where((r) => r.userId == userId && r.mode == mode)
+        .toList();
+
+    if (userResults.isEmpty) return null;
+
+    // typingSpeed 기준으로 정렬 (분당 타수가 높은 순)
+    userResults.sort(
+      (a, b) => (b.typingSpeed ?? 0).compareTo(a.typingSpeed ?? 0),
+    );
+    return userResults.first;
+  }
 }

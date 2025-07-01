@@ -37,8 +37,11 @@ abstract interface class TypingRepository {
     String mode,
   );
 
-  /// 최고 기록 조회 (WPM 기준)
-  Future<Result<TypingResult?>> getBestWpmResult(String userId, String mode);
+  /// 최고 기록 조회 (분당 타수 기준) - 메서드명 변경
+  Future<Result<TypingResult?>> getBestTypingSpeedResult(
+    String userId,
+    String mode,
+  );
 
   /// 최고 정확도 기록 조회
   Future<Result<TypingResult?>> getBestAccuracyResult(

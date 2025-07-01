@@ -521,11 +521,18 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
 
   Widget _buildStatsRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingMD),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColorsStyle.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatItem('WPM', widget.state.wpm.toStringAsFixed(1)),
+          _buildStatItem(
+            '분당 타수',
+            widget.state.typingSpeed.toStringAsFixed(0),
+          ), // WPM → 분당 타수
           _buildStatItem('정확도', '${widget.state.accuracy.toStringAsFixed(1)}%'),
         ],
       ),

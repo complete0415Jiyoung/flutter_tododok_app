@@ -13,7 +13,8 @@ class TypingResultDto {
     this.mode,
     this.sentenceId,
     this.sentenceContent,
-    this.wpm,
+    this.wpm, // 기존 Firebase 호환성을 위해 wpm 유지
+    this.typingSpeed, // 새로운 필드 추가
     this.accuracy,
     this.typoCount,
     this.totalCharacters,
@@ -41,19 +42,26 @@ class TypingResultDto {
   /// 실제 연습한 문장 내용 (백업용)
   final String? sentenceContent;
 
-  /// 타자 속도 (Words Per Minute)
+  /// 기존 타자 속도 (WPM) - Firebase 호환성
   final num? wpm;
+
+  /// 새로운 타자 속도 (분당 타수 - CPM)
+  @JsonKey(name: 'typing_speed')
+  final num? typingSpeed;
 
   /// 정확도 (0-100)
   final num? accuracy;
 
   /// 오타 개수
+  @JsonKey(name: 'typo_count')
   final num? typoCount;
 
   /// 총 문자 수
+  @JsonKey(name: 'total_characters')
   final num? totalCharacters;
 
   /// 올바르게 입력한 문자 수
+  @JsonKey(name: 'correct_characters')
   final num? correctCharacters;
 
   /// 입력 시간 (초)
@@ -64,6 +72,7 @@ class TypingResultDto {
 
   /// 생성 시간
   @JsonKey(
+    name: 'created_at',
     fromJson: FirebaseTimestampConverter.timestampFromJson,
     toJson: FirebaseTimestampConverter.timestampToJson,
   )
