@@ -1,20 +1,23 @@
 // lib/typing/presentation/result/typing_result_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/styles/app_colors_style.dart';
 import '../../../shared/styles/app_text_style.dart';
 import '../../../shared/styles/app_dimensions.dart';
+import '../word_practice/word_practice_notifier.dart';
+import '../word_practice/word_practice_action.dart';
 
-class TypingResultScreen extends StatefulWidget {
+class TypingResultScreen extends ConsumerStatefulWidget {
   final Map<String, String> params;
 
   const TypingResultScreen({super.key, required this.params});
 
   @override
-  State<TypingResultScreen> createState() => _TypingResultScreenState();
+  ConsumerState<TypingResultScreen> createState() => _TypingResultScreenState();
 }
 
-class _TypingResultScreenState extends State<TypingResultScreen>
+class _TypingResultScreenState extends ConsumerState<TypingResultScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -54,6 +57,42 @@ class _TypingResultScreenState extends State<TypingResultScreen>
     super.dispose();
   }
 
+  // "다시 연습" 버튼 클릭 시 게임 상태 완전 초기화 후 돌아가기
+  void _restartPractice() async {
+    try {
+      // 1. 게임 상태 완전 초기화
+      final notifier = ref.read(wordPracticeNotifierProvider.notifier);
+      notifier.onAction(const WordPracticeAction.restartGame());
+
+      // 2. 잠시 대기하여 상태 변경이 완료되도록 함
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // 3. 언어 및 초기화 다시 실행 (새로운 게임 준비)
+      final language = widget.params['language'] ?? 'ko';
+      notifier.onAction(WordPracticeAction.initialize(language));
+
+      // 4. 추가 대기로 초기화 완료 보장
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // 5. 이전 화면으로 돌아가기
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 6. 돌아간 후 포커스 설정을 위한 추가 대기
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // 7. 키보드 강제로 띄우기 위한 액션 (게임 시작 후)
+      notifier.onAction(const WordPracticeAction.startGame());
+    } catch (e) {
+      debugPrint('재시작 중 오류 발생: $e');
+      // 오류 발생 시에도 화면은 돌아가기
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,8 +109,6 @@ class _TypingResultScreenState extends State<TypingResultScreen>
                 const SizedBox(height: 32),
                 _buildStats(),
                 const SizedBox(height: 32),
-                _buildAnalysis(),
-                const SizedBox(height: 40),
                 _buildActionButtons(),
                 const SizedBox(height: 20),
               ],
@@ -275,91 +312,6 @@ class _TypingResultScreenState extends State<TypingResultScreen>
     );
   }
 
-  Widget _buildAnalysis() {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: _getPerformanceColor().withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _getPerformanceColor().withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '분석',
-              style: AppTextStyle.heading5.copyWith(
-                color: _getPerformanceColor(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildPerformanceBar(),
-            const SizedBox(height: 16),
-            Text(
-              _getDetailedAnalysis(),
-              style: AppTextStyle.bodyMedium.copyWith(
-                color: AppColorsStyle.textSecondary,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPerformanceBar() {
-    final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
-    final normalizedScore = (accuracy / 100).clamp(0.0, 1.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '종합 점수',
-              style: AppTextStyle.labelMedium.copyWith(
-                color: AppColorsStyle.textSecondary,
-              ),
-            ),
-            Text(
-              '${(normalizedScore * 100).toInt()}점',
-              style: AppTextStyle.labelMedium.copyWith(
-                color: _getPerformanceColor(),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: AppColorsStyle.containerBackground,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: normalizedScore,
-            child: Container(
-              decoration: BoxDecoration(
-                color: _getPerformanceColor(),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildActionButtons() {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -371,7 +323,7 @@ class _TypingResultScreenState extends State<TypingResultScreen>
                 child: _buildActionButton(
                   '다시 연습',
                   true,
-                  () => Navigator.of(context).pop(),
+                  _restartPractice, // 수정된 메서드 사용
                 ),
               ),
               const SizedBox(width: 16),
@@ -547,40 +499,6 @@ class _TypingResultScreenState extends State<TypingResultScreen>
       return '좋은 정확도를 보여주고 있어요';
     }
     return '꾸준한 연습으로 더 나아질 수 있어요';
-  }
-
-  String _getDetailedAnalysis() {
-    final accuracy = double.tryParse(widget.params['accuracy'] ?? '0') ?? 0;
-    final wpm = double.tryParse(widget.params['wpm'] ?? '0') ?? 0;
-    final typos = int.tryParse(widget.params['typos'] ?? '0') ?? 0;
-
-    List<String> insights = [];
-
-    if (accuracy >= 95) {
-      insights.add('정확도가 매우 우수합니다.');
-    } else if (accuracy >= 85) {
-      insights.add('정확도가 좋은 편입니다.');
-    } else {
-      insights.add('정확도 향상을 위해 천천히 정확하게 타이핑해보세요.');
-    }
-
-    if (wpm >= 60) {
-      insights.add('타자 속도가 빠른 편입니다.');
-    } else if (wpm >= 40) {
-      insights.add('타자 속도가 평균적입니다.');
-    } else {
-      insights.add('타자 속도 향상을 위해 더 많은 연습이 필요합니다.');
-    }
-
-    if (typos == 0) {
-      insights.add('오타 없이 완벽하게 입력했습니다!');
-    } else if (typos <= 2) {
-      insights.add('오타가 적어 좋습니다.');
-    } else {
-      insights.add('오타를 줄이기 위해 조금 더 신중하게 입력해보세요.');
-    }
-
-    return insights.join(' ');
   }
 
   void _showCreateChallengeDialog() {

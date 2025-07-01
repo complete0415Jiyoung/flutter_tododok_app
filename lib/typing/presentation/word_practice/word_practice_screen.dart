@@ -160,6 +160,45 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
         _focusNode.requestFocus();
       });
     }
+
+    // 게임이 재시작된 후 포커스 설정 (추가)
+    if (oldWidget.state.isGameRunning == true &&
+        widget.state.isGameRunning == false &&
+        !widget.state.isGameOver) {
+      // 게임이 중지되었지만 게임오버가 아닌 경우 (재시작 상황)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
+
+    // 카운트다운이 끝나고 게임이 시작될 때 포커스 설정 강화
+    if (oldWidget.state.isGameRunning != widget.state.isGameRunning &&
+        widget.state.isGameRunning) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // 기존 포커스 해제 후 다시 설정
+          _focusNode.unfocus();
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              _focusNode.requestFocus();
+            }
+          });
+        }
+      });
+    }
+
+    // 입력 필드가 활성화될 때마다 포커스 확인 (추가)
+    if (widget.state.isGameRunning &&
+        !widget.state.isPaused &&
+        !widget.state.isGameOver) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override
@@ -802,6 +841,9 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
             focusNode: _focusNode,
             enabled: widget.state.isGameRunning,
             autofocus: true, // 자동 포커스 활성화
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
+            keyboardAppearance: Brightness.light,
             decoration: InputDecoration(
               hintText:
                   widget.state.currentWordInputStatus == WordInputStatus.error
@@ -850,7 +892,7 @@ class _WordPracticeScreenState extends State<WordPracticeScreen>
             ),
             onChanged: _onTextChanged,
             onSubmitted: (_) => _onSubmit(),
-            textInputAction: TextInputAction.done,
+
             // 키보드가 자동으로 올라오도록 보장
             onTap: () {
               if (!_focusNode.hasFocus) {

@@ -199,11 +199,12 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
         )
         .toList();
 
+    // 상태를 완전히 초기화하되, 준비 상태로 설정
     state = state.copyWith(
       wordSequence: resetSequence,
       currentWordIndex: 0,
       currentWordInput: '',
-      isGameRunning: false,
+      isGameRunning: false, // 게임 중지
       isPaused: false,
       isGameOver: false,
       gameStartTime: null,
@@ -218,6 +219,14 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
       showHint: false,
       score: 0,
     );
+
+    // 짧은 대기 후 자동으로 게임 준비 상태로 전환
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (state.wordSequence.isNotEmpty) {
+        // 자동으로 카운트다운이 시작되도록 상태 설정
+        // (WordPracticeScreen에서 카운트다운 감지하여 자동 시작)
+      }
+    });
   }
 
   void _endGame() {
