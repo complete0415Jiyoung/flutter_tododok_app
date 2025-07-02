@@ -219,7 +219,16 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   void _updateInput(String input) {
     if (!state.isGameRunning || state.isPaused || state.isGameOver) return;
 
+    final previousInput = state.currentWordInput;
     state = state.copyWith(currentWordInput: input);
+
+    // 글자가 추가되었을 때만 타수 통계 업데이트
+    if (input.length > previousInput.length) {
+      state = state.copyWith(
+        totalCharactersTyped: state.totalCharactersTyped + 1,
+      );
+      _updateStatistics(); // 실시간 타수 계산
+    }
   }
 
   void _submitCurrentWord() {
@@ -329,16 +338,15 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   void _calculateWpm() {
     final elapsedMinutes = state.elapsedSeconds / 60.0;
     if (elapsedMinutes > 0) {
-      // 분당 타수 계산 (실제로는 CPM)
-      final totalCharactersTyped = state.totalCharactersTyped;
-      final typingSpeed = totalCharactersTyped / elapsedMinutes;
+      // ✅ 분당 타수 계산 (총 입력한 글자 수 기준)
+      final typingSpeed = state.totalCharactersTyped / elapsedMinutes;
 
-      // 기존 WPM 계산 (호환성 유지 - 단어 기준)
-      final wordsPerMinute = state.correctWordsCount / elapsedMinutes;
+      // ✅ 호환성을 위한 WPM (단어 기준) - 대략 5글자 = 1단어
+      final wordsPerMinute = typingSpeed / 5.0;
 
       state = state.copyWith(
-        typingSpeed: typingSpeed, // 새로운 분당 타수 필드
-        wpm: wordsPerMinute, // 기존 WPM 유지 (단어 기준)
+        typingSpeed: typingSpeed, // 메인 지표: 분당 글자 수
+        wpm: wordsPerMinute, // 호환성: 대략적인 단어 기준
       );
     }
   }
