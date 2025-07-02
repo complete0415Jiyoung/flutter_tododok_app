@@ -74,11 +74,13 @@ class _WordPracticeScreenRootState
     });
 
     return PopScope(
-      // 뒤로가기 버튼 눌렀을 때 게임이 실행 중이면 일시정지
-      canPop: !state.isGameRunning,
+      // 시스템 뒤로가기 버튼(제스처)만 제한하고, 앱바 뒤로가기는 허용
+      canPop: true, // 항상 true로 설정하여 앱바 뒤로가기 허용
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && state.isGameRunning) {
-          notifier.onAction(const WordPracticeAction.pauseGame());
+        // 게임이 실행 중이고 시스템 뒤로가기로 나갈 때만 처리
+        if (didPop && state.isGameRunning && !state.isPaused) {
+          // 게임 종료 처리 (선택사항)
+          notifier.onAction(const WordPracticeAction.endGame());
         }
       },
       child: WordPracticeScreen(
@@ -90,7 +92,7 @@ class _WordPracticeScreenRootState
               final queryParams = {
                 'type': 'practice',
                 'mode': 'word',
-                'typingSpeed': state.typingSpeed.toStringAsFixed(0),
+                'typingSpeed': state.wpm.toStringAsFixed(0), // WPM 사용
                 'accuracy': state.accuracy.toStringAsFixed(1),
                 'duration': state.elapsedSeconds.toStringAsFixed(1),
                 'language': state.language,

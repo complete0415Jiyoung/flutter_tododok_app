@@ -280,6 +280,42 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   void _completeCurrentWord(bool isCorrect, double timeTaken) {
     if (state.currentWord == null) return;
 
+    // 현재 입력한 단어와 정답 단어
+    final inputWord = state.currentWordInput.trim();
+    final targetWord = state.currentWord!.text;
+
+    // 하이브리드 점수 계산
+    double wordScore = 0.0;
+
+    if (isCorrect) {
+      // 완전 정답: 100점
+      wordScore = 100.0;
+    } else {
+      // 부분 정답: 글자 정확도 계산
+      int correctChars = 0;
+      final maxLength = targetWord.length;
+
+      // 각 글자 비교
+      for (int i = 0; i < maxLength; i++) {
+        if (i < inputWord.length && inputWord[i] == targetWord[i]) {
+          correctChars++;
+        }
+      }
+
+      // 글자 정확도 (0~100)
+      final charAccuracy = maxLength > 0
+          ? (correctChars / maxLength) * 100
+          : 0.0;
+
+      // 하이브리드 점수: 기본 0점 + 글자 정확도의 70%
+      wordScore = charAccuracy * 0.7;
+    }
+
+    // 현재까지의 누적 정확도 계산
+    final totalWords = state.correctWordsCount + state.incorrectWordsCount + 1;
+    final currentTotalScore = (state.accuracy * (totalWords - 1)) + wordScore;
+    final newAccuracy = currentTotalScore / totalWords;
+
     state = state.copyWith(
       correctWordsCount: isCorrect
           ? state.correctWordsCount + 1
@@ -287,8 +323,8 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
       incorrectWordsCount: !isCorrect
           ? state.incorrectWordsCount + 1
           : state.incorrectWordsCount,
-      totalCharactersTyped:
-          state.totalCharactersTyped + state.currentWordInput.length,
+      totalCharactersTyped: state.totalCharactersTyped + inputWord.length,
+      accuracy: newAccuracy.clamp(0.0, 100.0),
       score: isCorrect
           ? state.score +
                 _calculateWordScore(state.currentWord!.text.length, timeTaken)
@@ -332,7 +368,6 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
 
   void _updateStatistics() {
     _calculateWpm();
-    _calculateAccuracy();
   }
 
   void _calculateWpm() {
@@ -352,11 +387,62 @@ class WordPracticeNotifier extends _$WordPracticeNotifier {
   }
 
   void _calculateAccuracy() {
-    final totalAttempts = state.correctWordsCount + state.incorrectWordsCount;
-    if (totalAttempts > 0) {
-      final accuracy = (state.correctWordsCount / totalAttempts) * 100;
-      state = state.copyWith(accuracy: accuracy);
+    final totalWords = state.correctWordsCount + state.incorrectWordsCount;
+    if (totalWords == 0) return;
+
+    // 1. 기본 점수: 정확한 단어 비율 × 70%
+    final wordAccuracyScore = (state.correctWordsCount / totalWords) * 70;
+
+    // 2. 부분 점수: 틀린 단어들의 글자 정확도 × 30%
+    double partialScore = 0.0;
+
+    if (state.incorrectWordsCount > 0) {
+      // 완료된 단어들(현재 인덱스까지) 중에서 틀린 단어들의 글자 정확도 계산
+      double totalCharAccuracy = 0.0;
+      int incorrectWordCount = 0;
+
+      // 현재까지 완료된 단어들을 순회
+      for (int i = 0; i < state.currentWordIndex; i++) {
+        if (i < state.wordSequence.length) {
+          final word = state.wordSequence[i];
+
+          // 틀린 단어라면 (userInput이 실제 단어와 다른 경우)
+          if (word.userInput != word.text) {
+            incorrectWordCount++;
+
+            // 글자별 정확도 계산
+            final targetWord = word.text;
+            final inputWord = word.userInput;
+            int correctChars = 0;
+            final maxLength = targetWord.length;
+
+            // 각 글자 비교 (입력한 만큼만)
+            for (int j = 0; j < maxLength; j++) {
+              if (j < inputWord.length && j < targetWord.length) {
+                if (inputWord[j] == targetWord[j]) {
+                  correctChars++;
+                }
+              }
+              // 입력하지 않은 글자들은 틀린 것으로 처리
+            }
+
+            final charAccuracy = correctChars / maxLength;
+            totalCharAccuracy += charAccuracy;
+          }
+        }
+      }
+
+      // 틀린 단어들의 평균 글자 정확도 계산
+      if (incorrectWordCount > 0) {
+        final avgCharAccuracy = totalCharAccuracy / incorrectWordCount;
+        partialScore = avgCharAccuracy * 30;
+      }
     }
+
+    // 3. 최종 정확도 = 기본점수 + 부분점수
+    final finalAccuracy = wordAccuracyScore + partialScore;
+
+    state = state.copyWith(accuracy: finalAccuracy.clamp(0.0, 100.0));
   }
 
   void _loadWordSequence(String sentenceText, String sentenceId) {

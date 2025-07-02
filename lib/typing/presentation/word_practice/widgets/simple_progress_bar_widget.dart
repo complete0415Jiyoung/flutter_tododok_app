@@ -28,25 +28,25 @@ class SimpleProgressBarWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row(
-          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //   children: [
-          //     Text(
-          //       '게임 진행률',
-          //       style: Theme.of(
-          //         context,
-          //       ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
-          //     ),
-          //     Text(
-          //       '${state.currentWordIndex} / ${state.wordSequence.length}',
-          //       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          //         color: Theme.of(context).colorScheme.primary,
-          //         fontWeight: FontWeight.w500,
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          // const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '게임 진행률',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
+              ),
+              Text(
+                '${state.currentWordIndex} / ${state.wordSequence.length}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
 
           // 진행률 바
           Stack(
