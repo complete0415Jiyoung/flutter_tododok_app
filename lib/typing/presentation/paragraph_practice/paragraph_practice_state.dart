@@ -2,6 +2,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../domain/model/sentence.dart';
+import '../../domain/model/typing_character_input.dart';
 
 part 'paragraph_practice_state.freezed.dart';
 
@@ -10,6 +11,8 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
   const ParagraphPracticeState({
     this.availableSentences = const AsyncLoading(),
     this.currentSentence,
+    this.sentenceLines = const [],
+    this.currentLineIndex = 0,
     this.userInput = '',
     this.currentCharIndex = 0,
     this.isStarted = false,
@@ -21,11 +24,10 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
     this.correctCharacters = 0,
     this.incorrectCharacters = 0,
     this.totalTypos = 0,
-    this.wpm = 0.0, // 기존 필드 유지
-    this.typingSpeed = 0.0, // 새 필드 추가 - 분당 타수
+    this.wpm = 0.0,
+    this.typingSpeed = 0.0,
     this.accuracy = 0.0,
-    this.cpm = 0.0,
-    this.characterStats = const [],
+    this.characterInputs = const [],
   });
 
   /// 사용 가능한 문장들
@@ -35,6 +37,14 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
   /// 현재 연습 중인 문장
   @override
   final Sentence? currentSentence;
+
+  /// 20자씩 분할된 문장 줄들
+  @override
+  final List<String> sentenceLines;
+
+  /// 현재 입력 중인 줄 인덱스
+  @override
+  final int currentLineIndex;
 
   /// 사용자 현재 입력
   @override
@@ -55,9 +65,6 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
   /// 일시정지 여부
   @override
   final bool isPaused;
-
-  @override
-  final double typingSpeed;
 
   /// 연습 시작 시간
   @override
@@ -87,17 +94,17 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
   @override
   final double wpm;
 
+  /// 분당 타수 (새로운 메인 지표)
+  @override
+  final double typingSpeed;
+
   /// 현재 정확도 (0-100) - 실시간 계산된 값
   @override
   final double accuracy;
 
-  /// 현재 CPM (Characters Per Minute) - 실시간 계산된 값
+  /// 각 글자별 입력 기록들
   @override
-  final double cpm;
-
-  /// 각 글자별 입력 통계 (정확/오타/시간)
-  @override
-  final List<CharacterStat> characterStats;
+  final List<TypingCharacterInput> characterInputs;
 
   /// 연습 진행 시간 (초)
   double get elapsedSeconds {
@@ -115,7 +122,7 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
 
   /// 진행률 (0.0 ~ 1.0)
   double get progress => totalSentenceLength > 0
-      ? (currentCharIndex / totalSentenceLength).clamp(0.0, 1.0)
+      ? (userInput.length / totalSentenceLength).clamp(0.0, 1.0)
       : 0.0;
 
   /// 진행률 퍼센트 (0 ~ 100)
@@ -135,94 +142,61 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
 
   /// 현재 입력해야 할 글자
   String? get currentTargetChar {
-    if (currentSentence == null || currentCharIndex >= totalSentenceLength) {
+    if (currentSentence == null ||
+        userInput.length >= currentSentence!.content.length) {
       return null;
     }
-    return currentSentence!.content[currentCharIndex];
+    return currentSentence!.content[userInput.length];
   }
 
-  /// 이미 입력 완료된 부분
-  String get completedText {
-    if (currentSentence == null) return '';
-    final endIndex = currentCharIndex.clamp(0, totalSentenceLength);
-    return currentSentence!.content.substring(0, endIndex);
+  /// 현재 줄의 텍스트
+  String get currentLineText {
+    if (currentLineIndex >= sentenceLines.length) return '';
+    return sentenceLines[currentLineIndex];
   }
 
-  /// 아직 입력하지 않은 부분
-  String get remainingText {
-    if (currentSentence == null) return '';
-    final startIndex = currentCharIndex.clamp(0, totalSentenceLength);
-    return currentSentence!.content.substring(startIndex);
+  /// 다음 줄의 텍스트 (미리보기용)
+  String get nextLineText {
+    if (currentLineIndex + 1 >= sentenceLines.length) return '연습 완료!';
+    return sentenceLines[currentLineIndex + 1];
   }
 
-  /// 현재 입력된 마지막 글자가 정확한지
-  bool get isLastCharCorrect {
-    if (userInput.isEmpty || currentSentence == null) return true;
-    if (userInput.length > totalSentenceLength) return false;
+  /// 현재 줄에서의 입력 위치 (줄 내에서의 상대적 위치)
+  int get currentLinePosition {
+    if (sentenceLines.isEmpty || currentLineIndex >= sentenceLines.length) {
+      return 0;
+    }
 
-    final lastInputIndex = userInput.length - 1;
-    final targetChar = currentSentence!.content[lastInputIndex];
-    final inputChar = userInput[lastInputIndex];
-    return targetChar == inputChar;
+    // 현재 줄까지의 모든 문자 수 계산
+    int totalCharsBeforeCurrentLine = 0;
+    for (int i = 0; i < currentLineIndex; i++) {
+      totalCharsBeforeCurrentLine += sentenceLines[i].length;
+    }
+
+    return userInput.length - totalCharsBeforeCurrentLine;
   }
 
-  /// 우수한 정확도인지 (90% 이상)
-  bool get isGoodAccuracy => accuracy >= 90.0;
+  /// 전체 텍스트에서 현재 줄의 시작 위치
+  int get currentLineStartPosition {
+    if (sentenceLines.isEmpty || currentLineIndex >= sentenceLines.length) {
+      return 0;
+    }
 
-  /// 완벽한 타자인지 (100% 정확도)
-  bool get isFastSpeed => typingSpeed >= 300.0;
-
-  /// 타자 수준 평가
-  String get typingLevel {
-    if (typingSpeed < 100) return '초급';
-    if (typingSpeed < 200) return '중급';
-    if (typingSpeed < 300) return '고급';
-    if (typingSpeed < 400) return '상급';
-    return '전문가';
+    int position = 0;
+    for (int i = 0; i < currentLineIndex; i++) {
+      position += sentenceLines[i].length;
+    }
+    return position;
   }
 
-  /// 남은 글자 수
-  int get remainingCharacters => totalSentenceLength - currentCharIndex;
-
-  /// 예상 완료 시간 (현재 속도 기준, 초)
-  double get estimatedTimeToComplete {
-    if (cpm <= 0 || remainingCharacters <= 0) return 0.0;
-    return (remainingCharacters / cpm) * 60.0;
+  /// 현재 줄이 완료되었는지 확인
+  bool get isCurrentLineCompleted {
+    return currentLinePosition >= currentLineText.length;
   }
-}
 
-/// 각 글자별 입력 통계
-@freezed
-class CharacterStat with _$CharacterStat {
-  const CharacterStat({
-    required this.character,
-    required this.inputTime,
-    required this.isCorrect,
-    required this.attempts,
-  });
-
-  /// 입력한 글자
-  @override
-  final String character;
-
-  /// 입력 시간 (밀리초)
-  @override
-  final int inputTime;
-
-  /// 정확한 입력 여부
-  @override
-  final bool isCorrect;
-
-  /// 시도 횟수 (백스페이스 후 재입력 포함)
-  @override
-  final int attempts;
-
-  /// 입력 속도 (이 글자를 입력하는데 걸린 시간, 초)
-  double get inputDuration => inputTime / 1000.0;
-
-  /// 빠른 입력인지 (0.5초 이하)
-  bool get isFastInput => inputDuration <= 0.5;
-
-  /// 느린 입력인지 (2초 이상)
-  bool get isSlowInput => inputDuration >= 2.0;
+  /// 모든 줄이 완료되었는지 확인
+  bool get areAllLinesCompleted {
+    return currentLineIndex >= sentenceLines.length - 1 &&
+        isCurrentLineCompleted;
+  }
 }

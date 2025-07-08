@@ -5,6 +5,7 @@ import '../../domain/usecase/get_sentences_use_case.dart';
 import '../../domain/usecase/get_random_sentence_use_case.dart';
 import '../../domain/usecase/save_typing_result_use_case.dart';
 import '../../domain/model/typing_result.dart';
+import '../../domain/model/typing_character_input.dart';
 import '../../module/typing_di.dart';
 import 'paragraph_practice_state.dart';
 import 'paragraph_practice_action.dart';
@@ -26,13 +27,11 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     _getRandomSentenceUseCase = ref.watch(getRandomSentenceUseCaseProvider);
     _saveTypingResultUseCase = ref.watch(saveTypingResultUseCaseProvider);
 
+    // 🔥 수정: .initial() 제거하고 기본 생성자 사용
     return const ParagraphPracticeState();
   }
 
-  @override
-  void dispose() {
-    _stopStatsTimer();
-  }
+  // 🔥 수정: dispose 메서드 제거 (Riverpod 2.x에서는 자동 처리)
 
   Future<void> onAction(ParagraphPracticeAction action) async {
     switch (action) {
@@ -73,6 +72,37 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     }
   }
 
+  /// 문장을 20자씩 분할하는 함수
+  List<String> _splitSentenceIntoLines(
+    String sentence, {
+    int charsPerLine = 20,
+  }) {
+    if (sentence.isEmpty) return [];
+
+    final List<String> lines = [];
+    for (int i = 0; i < sentence.length; i += charsPerLine) {
+      final end = (i + charsPerLine > sentence.length)
+          ? sentence.length
+          : i + charsPerLine;
+      lines.add(sentence.substring(i, end));
+    }
+    return lines;
+  }
+
+  /// 현재 입력 위치에 해당하는 줄 인덱스 계산
+  int _calculateCurrentLineIndex(String userInput, List<String> lines) {
+    if (lines.isEmpty || userInput.isEmpty) return 0;
+
+    int totalChars = 0;
+    for (int i = 0; i < lines.length; i++) {
+      totalChars += lines[i].length;
+      if (userInput.length <= totalChars) {
+        return i;
+      }
+    }
+    return lines.length - 1;
+  }
+
   Future<void> _initialize(String language) async {
     state = state.copyWith(language: language);
     await _loadSentences(language);
@@ -90,9 +120,16 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       data: (sentences) {
         state = state.copyWith(availableSentences: AsyncData(sentences));
 
-        // 첫 번째 문장을 자동으로 선택
+        // 첫 번째 문장을 자동으로 선택하고 분할
         if (sentences.isNotEmpty) {
-          state = state.copyWith(currentSentence: sentences.first);
+          final firstSentence = sentences.first;
+          final lines = _splitSentenceIntoLines(firstSentence.content);
+
+          state = state.copyWith(
+            currentSentence: firstSentence,
+            sentenceLines: lines,
+            currentLineIndex: 0,
+          );
         }
       },
       loading: () {
@@ -115,9 +152,14 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       orElse: () => sentences.first,
     );
 
+    // 선택된 문장을 20자씩 분할
+    final lines = _splitSentenceIntoLines(selectedSentence.content);
+
     state = state.copyWith(
       currentSentence: selectedSentence,
-      // 연습 중이었다면 초기화
+      sentenceLines: lines,
+      currentLineIndex: 0,
+      // 연습 상태 초기화
       isStarted: false,
       isCompleted: false,
       isPaused: false,
@@ -127,10 +169,9 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
-      typingSpeed: 0.0, // 새로운 분당 타수 초기화
+      typingSpeed: 0.0,
       accuracy: 0.0,
-      cpm: 0.0,
-      characterStats: [],
+      characterInputs: const [],
       startTime: null,
       endTime: null,
     );
@@ -144,9 +185,14 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
 
     randomResult.when(
       data: (sentence) {
+        // 랜덤 문장을 20자씩 분할
+        final lines = _splitSentenceIntoLines(sentence.content);
+
         state = state.copyWith(
           currentSentence: sentence,
-          // 연습 중이었다면 초기화
+          sentenceLines: lines,
+          currentLineIndex: 0,
+          // 연습 상태 초기화
           isStarted: false,
           isCompleted: false,
           isPaused: false,
@@ -156,10 +202,9 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
           incorrectCharacters: 0,
           totalTypos: 0,
           wpm: 0.0,
-          typingSpeed: 0.0, // 새로운 분당 타수 초기화
+          typingSpeed: 0.0,
           accuracy: 0.0,
-          cpm: 0.0,
-          characterStats: [],
+          characterInputs: const [],
           startTime: null,
           endTime: null,
         );
@@ -180,14 +225,14 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       startTime: DateTime.now(),
       userInput: '',
       currentCharIndex: 0,
+      currentLineIndex: 0,
       correctCharacters: 0,
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
-      typingSpeed: 0.0, // 새로운 분당 타수 초기화
+      typingSpeed: 0.0,
       accuracy: 0.0,
-      cpm: 0.0,
-      characterStats: [],
+      characterInputs: const [],
     );
 
     _startStatsTimer();
@@ -220,14 +265,14 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       isPaused: false,
       userInput: '',
       currentCharIndex: 0,
+      currentLineIndex: 0,
       correctCharacters: 0,
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
-      typingSpeed: 0.0, // 새로운 분당 타수 초기화
+      typingSpeed: 0.0,
       accuracy: 0.0,
-      cpm: 0.0,
-      characterStats: [],
+      characterInputs: const [],
       startTime: null,
       endTime: null,
     );
@@ -266,7 +311,10 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       input = input.substring(0, targetText.length);
     }
 
-    state = state.copyWith(userInput: input);
+    // 현재 줄 인덱스 계산
+    final newLineIndex = _calculateCurrentLineIndex(input, state.sentenceLines);
+
+    state = state.copyWith(userInput: input, currentLineIndex: newLineIndex);
 
     // 새로 입력된 글자가 있는지 확인
     if (input.length > previousInput.length) {
@@ -290,35 +338,33 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
   ) {
     final now = DateTime.now();
     final inputTime = _lastInputTime != null
-        ? now.difference(_lastInputTime!).inMilliseconds
-        : 0;
+        ? now.difference(_lastInputTime!)
+        : const Duration(milliseconds: 0);
 
     final isCorrect = inputChar == targetChar;
 
-    // 글자별 통계 추가
-    final characterStat = CharacterStat(
-      character: inputChar,
-      inputTime: inputTime,
-      isCorrect: isCorrect,
-      attempts: 1, // 기본 1회 시도
-    );
-
-    final newStats = [...state.characterStats, characterStat];
-
     // 통계 업데이트
     if (isCorrect) {
-      state = state.copyWith(
-        correctCharacters: state.correctCharacters + 1,
-        currentCharIndex: charIndex + 1,
-        characterStats: newStats,
-      );
+      state = state.copyWith(correctCharacters: state.correctCharacters + 1);
     } else {
       state = state.copyWith(
         incorrectCharacters: state.incorrectCharacters + 1,
         totalTypos: state.totalTypos + 1,
-        characterStats: newStats,
       );
     }
+
+    // TypingCharacterInput 생성
+    final characterInput = TypingCharacterInput(
+      targetCharacter: targetChar,
+      actualInput: inputChar,
+      isCorrect: isCorrect,
+      timestamp: now,
+      inputDuration: inputTime,
+    );
+
+    state = state.copyWith(
+      characterInputs: [...state.characterInputs, characterInput],
+    );
 
     _lastInputTime = now;
     _updateStats();
@@ -326,33 +372,26 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
 
   void _handleBackspace() {
     if (!state.isStarted || state.isPaused || state.isCompleted) return;
-    if (state.userInput.isEmpty) return;
-
-    final newInput = state.userInput.substring(0, state.userInput.length - 1);
-
-    // 백스페이스는 오타 수에 포함
-    state = state.copyWith(
-      userInput: newInput,
-      currentCharIndex: newInput.length,
-      totalTypos: state.totalTypos + 1,
-    );
-
-    _updateStats();
+    // 백스페이스 처리는 _updateInput에서 자동으로 처리됨
   }
 
   void _inputCharacter(String character) {
     if (!state.isStarted || state.isPaused || state.isCompleted) return;
-
+    // 개별 글자 입력 처리
     final newInput = state.userInput + character;
     _updateInput(newInput);
   }
 
   void _updateStats() {
-    final elapsedMinutes = state.elapsedSeconds / 60.0;
+    if (state.startTime == null) return;
+
+    // 경과 시간 계산 (분 단위)
+    final elapsedSeconds = state.elapsedSeconds;
+    final elapsedMinutes = elapsedSeconds / 60.0;
 
     if (elapsedMinutes <= 0) return;
 
-    // 분당 타수 계산 (CPM - Characters Per Minute) - 핵심 변경!
+    // 분당 타수 계산 (새로운 메인 지표)
     final typingSpeed = state.correctCharacters / elapsedMinutes;
 
     // 기존 WPM 계산 (호환성 유지용 - 5글자 = 1단어 가정)
@@ -364,11 +403,10 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
         ? (state.correctCharacters / totalAttempts) * 100.0
         : 0.0;
 
-    // 상태 업데이트 - typingSpeed를 메인으로 사용
+    // 상태 업데이트
     state = state.copyWith(
-      typingSpeed: typingSpeed, // 새로운 분당 타수 필드 (메인)
-      wpm: wpm, // 기존 호환성 유지
-      cpm: typingSpeed, // CPM (typingSpeed와 동일)
+      typingSpeed: typingSpeed,
+      wpm: wpm,
       accuracy: accuracy,
     );
   }
@@ -382,16 +420,17 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       isCompleted: false,
       isPaused: false,
       currentSentence: null,
+      sentenceLines: const [],
+      currentLineIndex: 0,
       userInput: '',
       currentCharIndex: 0,
       correctCharacters: 0,
       incorrectCharacters: 0,
       totalTypos: 0,
       wpm: 0.0,
-      typingSpeed: 0.0, // 새로운 분당 타수 초기화
+      typingSpeed: 0.0,
       accuracy: 0.0,
-      cpm: 0.0,
-      characterStats: [],
+      characterInputs: const [],
       startTime: null,
       endTime: null,
     );
@@ -409,7 +448,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       mode: 'paragraph',
       sentenceId: state.currentSentence!.id,
       sentenceContent: state.currentSentence!.content,
-      typingSpeed: state.typingSpeed, // 새로운 분당 타수 필드 사용
+      typingSpeed: state.typingSpeed,
       accuracy: state.accuracy,
       typoCount: state.totalTypos,
       totalCharacters: state.totalSentenceLength,

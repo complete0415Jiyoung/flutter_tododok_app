@@ -5,11 +5,12 @@ import '../../../shared/styles/app_colors_style.dart';
 import '../../../shared/styles/app_text_style.dart';
 import '../../../shared/styles/app_dimensions.dart';
 import '../../domain/model/sentence.dart';
+import '../../domain/enum/typing_enums.dart';
 
 class SentenceSelectionScreen extends StatefulWidget {
   final AsyncValue<List<Sentence>> sentences;
-  final String mode; // 'word' or 'paragraph'
-  final String language;
+  final PracticeMode mode;
+  final Language language;
   final Function(Sentence sentence) onSentenceSelected;
   final VoidCallback onRandomSelect;
   final Function(String language) onLanguageChanged;
@@ -35,9 +36,6 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-
-  int selectedDifficulty = 0;
-  String selectedCategory = '전체';
 
   @override
   void initState() {
@@ -74,83 +72,44 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColorsStyle.primary.withOpacity(0.05),
-              AppColorsStyle.primaryLight.withOpacity(0.1),
-              AppColorsStyle.surface,
-            ],
+            colors: [Color(0xFFF8FAFC), Color(0xFFE0F2FE)],
           ),
         ),
-        child: SafeArea(
-          child: widget.sentences.when(
-            loading: () => _buildLoadingView(),
-            error: (error, stack) => _buildErrorView(error.toString()),
-            data: (sentences) => _buildContent(sentences),
-          ),
+        child: widget.sentences.when(
+          data: (sentences) => _buildContent(sentences),
+          loading: () => _buildLoading(),
+          error: (error, stackTrace) => _buildError(error.toString()),
         ),
       ),
     );
   }
 
-  Widget _buildLoadingView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColorsStyle.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColorsStyle.primary.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                const SizedBox(
-                  width: 50,
-                  height: 50,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColorsStyle.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('문장을 불러오는 중...', style: AppTextStyle.bodyLarge.primary),
-              ],
-            ),
-          ),
-        ],
+  Widget _buildLoading() {
+    return const Center(
+      child: CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation<Color>(AppColorsStyle.primary),
       ),
     );
   }
 
-  Widget _buildErrorView(String error) {
+  Widget _buildError(String error) {
     return Center(
-      child: FadeTransition(
-        opacity: _fadeAnimation,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Container(
-          margin: const EdgeInsets.all(24),
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppColorsStyle.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: AppColorsStyle.error.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -178,7 +137,7 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
               const SizedBox(height: 8),
               Text(
                 error,
-                style: AppTextStyle.bodyMedium.textTertiary,
+                style: AppTextStyle.bodyMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -205,378 +164,186 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
   }
 
   Widget _buildContent(List<Sentence> sentences) {
-    final filteredSentences = _filterSentences(sentences);
-    final categories = _getCategories(sentences);
-
-    return CustomScrollView(
-      slivers: [
-        _buildSliverAppBar(),
-        SliverToBoxAdapter(child: _buildHeader(sentences.length)),
-        SliverToBoxAdapter(child: _buildFilters(categories)),
-        SliverToBoxAdapter(child: _buildRandomButton()),
-        _buildSentenceList(filteredSentences),
-      ],
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: CustomScrollView(
+          slivers: [
+            _buildSliverAppBar(),
+            SliverToBoxAdapter(child: _buildHeader(sentences.length)),
+            SliverToBoxAdapter(child: _buildRandomButton()),
+            SliverToBoxAdapter(child: _buildSectionTitle()),
+            _buildSentenceList(sentences),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 120,
+      expandedHeight: 80,
       floating: false,
       pinned: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
-      foregroundColor: AppColorsStyle.textPrimary,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColorsStyle.primary, AppColorsStyle.primaryLight],
-            ),
-          ),
+      leading: IconButton(
+        icon: const Icon(
+          Icons.arrow_back_ios_rounded,
+          color: AppColorsStyle.textPrimary,
+        ),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: Text(
+        '문장 선택하기',
+        style: AppTextStyle.heading3.copyWith(
+          color: AppColorsStyle.textPrimary,
         ),
       ),
-      leading: Container(
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppColorsStyle.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_rounded,
-            color: AppColorsStyle.white,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      actions: [
-        Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColorsStyle.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: PopupMenuButton<String>(
-            icon: const Icon(
-              Icons.language_rounded,
-              color: AppColorsStyle.white,
-            ),
-            onSelected: widget.onLanguageChanged,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'ko',
-                child: Row(
-                  children: [
-                    if (widget.language == 'ko')
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColorsStyle.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          size: 16,
-                          color: AppColorsStyle.white,
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 24),
-                    const SizedBox(width: 12),
-                    const Text('한글'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'en',
-                child: Row(
-                  children: [
-                    if (widget.language == 'en')
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColorsStyle.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          size: 16,
-                          color: AppColorsStyle.white,
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 24),
-                    const SizedBox(width: 12),
-                    const Text('English'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      centerTitle: true,
     );
   }
 
   Widget _buildHeader(int totalCount) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Container(
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: AppColorsStyle.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: AppColorsStyle.primary.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          AppColorsStyle.primary,
-                          AppColorsStyle.primaryLight,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                      widget.mode == 'word'
-                          ? Icons.sports_esports_rounded
-                          : Icons.article_rounded,
-                      color: AppColorsStyle.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.mode == 'word' ? '단어 연습' : '장문 연습',
-                          style: AppTextStyle.heading3,
-                        ),
-                        Text(
-                          '연습할 문장을 선택해주세요',
-                          style: AppTextStyle.bodyMedium.textSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColorsStyle.containerBackground,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '총 $totalCount개의 문장 • ${widget.language == 'ko' ? '한글' : 'English'}',
-                  style: AppTextStyle.labelMedium.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilters(List<String> categories) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColorsStyle.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          const Text('필터', style: AppTextStyle.heading4),
-          const SizedBox(height: 16),
-
-          // 난이도 필터
-          Text('난이도', style: AppTextStyle.labelLarge.textSecondary),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: widget.mode.isWord
+                  ? AppColorsStyle.primary
+                  : const Color(0xFF3B82F6),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              widget.mode.icon,
+              color: AppColorsStyle.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildModernFilterChip('전체', 0, true),
-                const SizedBox(width: 12),
-                ...List.generate(5, (index) {
-                  final difficulty = index + 1;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: _buildModernFilterChip(
-                      'Lv.$difficulty',
-                      difficulty,
-                      true,
+                Text(widget.mode.displayName, style: AppTextStyle.heading3),
+                const SizedBox(height: 4),
+                Text(
+                  '연습할 문장을 선택해주세요',
+                  style: AppTextStyle.bodyMedium.copyWith(
+                    color: AppColorsStyle.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColorsStyle.containerBackground,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '총 $totalCount개의 문장 • ${widget.language.displayName}',
+                    style: AppTextStyle.labelMedium.copyWith(
+                      color: AppColorsStyle.textSecondary,
                     ),
-                  );
-                }),
+                  ),
+                ),
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // 카테고리 필터
-          Text('카테고리', style: AppTextStyle.labelLarge.textSecondary),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: categories.map((category) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _buildModernFilterChip(category, category, false),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 20),
         ],
-      ),
-    );
-  }
-
-  Widget _buildModernFilterChip(
-    String label,
-    dynamic value,
-    bool isDifficulty,
-  ) {
-    final isSelected = isDifficulty
-        ? selectedDifficulty == value
-        : selectedCategory == value;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            setState(() {
-              if (isDifficulty) {
-                selectedDifficulty = value;
-              } else {
-                selectedCategory = value;
-              }
-            });
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: isSelected
-                  ? const LinearGradient(
-                      colors: [
-                        AppColorsStyle.primary,
-                        AppColorsStyle.primaryLight,
-                      ],
-                    )
-                  : null,
-              color: isSelected ? null : AppColorsStyle.containerBackground,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? Colors.transparent
-                    : AppColorsStyle.border.withOpacity(0.3),
-                width: 1,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppColorsStyle.primary.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Text(
-              label,
-              style: AppTextStyle.labelMedium.copyWith(
-                color: isSelected
-                    ? AppColorsStyle.white
-                    : AppColorsStyle.textSecondary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildRandomButton() {
     return Container(
-      margin: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       child: Material(
-        elevation: 4,
+        elevation: 6,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColorsStyle.secondary,
-                AppColorsStyle.secondary.withOpacity(0.8),
-              ],
+            gradient: const LinearGradient(
+              colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
             ),
             borderRadius: BorderRadius.circular(20),
           ),
           child: InkWell(
-            onTap: widget.onRandomSelect,
             borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            onTap: widget.onRandomSelect,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColorsStyle.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.shuffle_rounded,
-                      color: AppColorsStyle.white,
-                      size: 20,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColorsStyle.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.shuffle_rounded,
+                          color: AppColorsStyle.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        '랜덤 문장으로 시작',
+                        style: AppTextStyle.heading4.copyWith(
+                          color: AppColorsStyle.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(height: 8),
                   Text(
-                    '랜덤으로 시작하기',
-                    style: AppTextStyle.buttonLarge.withColor(
-                      AppColorsStyle.white,
+                    '무작위로 선택된 문장으로 바로 연습해보세요',
+                    style: AppTextStyle.bodyMedium.copyWith(
+                      color: AppColorsStyle.white.withOpacity(0.8),
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 32, 20, 16),
+      child: Text(
+        '문장 목록',
+        style: AppTextStyle.heading4.copyWith(
+          color: AppColorsStyle.textPrimary,
         ),
       ),
     );
@@ -590,7 +357,14 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
           padding: const EdgeInsets.all(40),
           decoration: BoxDecoration(
             color: AppColorsStyle.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -608,8 +382,10 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                '조건에 맞는 문장이 없습니다',
-                style: AppTextStyle.bodyLarge.textSecondary,
+                '문장이 없습니다',
+                style: AppTextStyle.bodyLarge.copyWith(
+                  color: AppColorsStyle.textSecondary,
+                ),
               ),
             ],
           ),
@@ -620,110 +396,123 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
         final sentence = sentences[index];
-        return _buildModernSentenceCard(sentence, index);
+        return _buildSentenceCard(sentence, index);
       }, childCount: sentences.length),
     );
   }
 
-  Widget _buildModernSentenceCard(Sentence sentence, int index) {
+  Widget _buildSentenceCard(Sentence sentence, int index) {
+    final difficulty = DifficultyLevel.fromLevel(sentence.difficulty);
+
     return Container(
-      margin: EdgeInsets.fromLTRB(20, index == 0 ? 0 : 8, 20, 16),
+      margin: EdgeInsets.fromLTRB(
+        20,
+        index == 0 ? 0 : 8,
+        20,
+        index == widget.sentences.value!.length - 1 ? 20 : 8,
+      ),
       child: Material(
         elevation: 2,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: () => widget.onSentenceSelected(sentence),
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColorsStyle.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColorsStyle.border.withOpacity(0.1),
-                width: 1,
-              ),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColorsStyle.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColorsStyle.containerBackground,
+              width: 1,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 헤더
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getDifficultyColor(sentence.difficulty),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Level ${sentence.difficulty}',
-                        style: AppTextStyle.labelSmall.withColor(
-                          AppColorsStyle.white,
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => widget.onSentenceSelected(sentence),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 난이도 및 카테고리 배지
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: difficulty.color,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          difficulty.label,
+                          style: AppTextStyle.labelSmall.copyWith(
+                            color: AppColorsStyle.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColorsStyle.containerBackground,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          sentence.category,
+                          style: AppTextStyle.labelSmall.copyWith(
+                            color: AppColorsStyle.textSecondary,
+                          ),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColorsStyle.containerBackground,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        sentence.category,
-                        style: AppTextStyle.labelSmall.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
 
-                const SizedBox(height: 16),
-
-                // 문장 내용
-                Text(
-                  sentence.content,
-                  style: AppTextStyle.bodyLarge.copyWith(height: 1.5),
-                  maxLines: widget.mode == 'word' ? 2 : 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                const SizedBox(height: 16),
-
-                // 통계 & 화살표
-                Row(
-                  children: [
-                    _buildStatChip(
-                      Icons.text_fields_rounded,
-                      '${sentence.content.length}글자',
+                  // 문장 내용
+                  Text(
+                    sentence.content,
+                    style: AppTextStyle.bodyLarge.copyWith(
+                      color: AppColorsStyle.textPrimary,
+                      height: 1.5,
                     ),
-                    const SizedBox(width: 12),
-                    _buildStatChip(
-                      Icons.space_bar_rounded,
-                      '${sentence.wordCount}단어',
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColorsStyle.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 통계 정보
+                  Row(
+                    children: [
+                      _buildStatChip(
+                        Icons.text_fields_rounded,
+                        '${sentence.content.length}글자',
                       ),
-                      child: const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 16,
-                        color: AppColorsStyle.primary,
+                      const SizedBox(width: 12),
+                      _buildStatChip(
+                        Icons.space_bar_rounded,
+                        '${sentence.wordCount}단어',
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColorsStyle.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          size: 20,
+                          color: AppColorsStyle.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -733,55 +522,24 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
 
   Widget _buildStatChip(IconData icon, String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: AppColorsStyle.containerBackground,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: AppColorsStyle.textTertiary),
           const SizedBox(width: 4),
-          Text(text, style: AppTextStyle.labelSmall.textTertiary),
+          Text(
+            text,
+            style: AppTextStyle.labelSmall.copyWith(
+              color: AppColorsStyle.textTertiary,
+            ),
+          ),
         ],
       ),
     );
-  }
-
-  List<Sentence> _filterSentences(List<Sentence> sentences) {
-    return sentences.where((sentence) {
-      if (selectedDifficulty != 0 &&
-          sentence.difficulty != selectedDifficulty) {
-        return false;
-      }
-      if (selectedCategory != '전체' && sentence.category != selectedCategory) {
-        return false;
-      }
-      return true;
-    }).toList();
-  }
-
-  List<String> _getCategories(List<Sentence> sentences) {
-    final categories = sentences.map((s) => s.category).toSet().toList();
-    categories.sort();
-    return ['전체', ...categories];
-  }
-
-  Color _getDifficultyColor(int difficulty) {
-    switch (difficulty) {
-      case 1:
-        return const Color(0xFF4CAF50); // Green
-      case 2:
-        return const Color(0xFF2196F3); // Blue
-      case 3:
-        return const Color(0xFFFF9800); // Orange
-      case 4:
-        return const Color(0xFFE91E63); // Pink
-      case 5:
-        return const Color(0xFF9C27B0); // Purple
-      default:
-        return AppColorsStyle.textTertiary;
-    }
   }
 }

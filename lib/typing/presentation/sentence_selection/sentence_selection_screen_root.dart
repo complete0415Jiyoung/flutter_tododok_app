@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'sentence_selection_notifier.dart';
 import 'sentence_selection_screen.dart';
 import 'sentence_selection_action.dart';
+import '../../domain/enum/typing_enums.dart';
 
 class SentenceSelectionScreenRoot extends ConsumerStatefulWidget {
   final String mode;
@@ -23,9 +24,17 @@ class SentenceSelectionScreenRoot extends ConsumerStatefulWidget {
 
 class _SentenceSelectionScreenRootState
     extends ConsumerState<SentenceSelectionScreenRoot> {
+  late final PracticeMode practiceMode;
+  late final Language language;
+
   @override
   void initState() {
     super.initState();
+
+    // String을 enum으로 변환
+    practiceMode = PracticeMode.fromValue(widget.mode);
+    language = Language.fromCode(widget.language);
+
     // 위젯이 생성된 후 초기화 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref
@@ -43,39 +52,26 @@ class _SentenceSelectionScreenRootState
 
     return SentenceSelectionScreen(
       sentences: state.sentences,
-      mode: state.mode,
-      language: state.language,
+      mode: practiceMode,
+      language: language,
       onSentenceSelected: (sentence) {
         // 선택된 문장으로 연습 시작
-        if (state.mode == 'word') {
-          context.push(
-            '/typing/word?language=${state.language}&sentenceId=${sentence.id}',
-          );
-        } else {
-          context.push(
-            '/typing/paragraph?language=${state.language}&sentenceId=${sentence.id}',
-          );
-        }
+        _navigateToTypingScreen(sentence.id);
       },
       onRandomSelect: () async {
         // 랜덤 문장 선택 후 연습 시작
         await notifier.onAction(
-          SentenceSelectionAction.getRandomSentence(state.mode, state.language),
+          SentenceSelectionAction.getRandomSentence(
+            widget.mode,
+            widget.language,
+          ),
         );
 
         final selectedSentence = ref
             .read(sentenceSelectionNotifierProvider)
             .selectedSentence;
         if (selectedSentence != null) {
-          if (state.mode == 'word') {
-            context.push(
-              '/typing/word?language=${state.language}&sentenceId=${selectedSentence.id}',
-            );
-          } else {
-            context.push(
-              '/typing/paragraph?language=${state.language}&sentenceId=${selectedSentence.id}',
-            );
-          }
+          _navigateToTypingScreen(selectedSentence.id);
         }
       },
       onLanguageChanged: (newLanguage) async {
@@ -85,5 +81,17 @@ class _SentenceSelectionScreenRootState
         );
       },
     );
+  }
+
+  void _navigateToTypingScreen(String sentenceId) {
+    if (practiceMode.isWord) {
+      context.push(
+        '/typing/word?language=${language.code}&sentenceId=$sentenceId',
+      );
+    } else {
+      context.push(
+        '/typing/paragraph?language=${language.code}&sentenceId=$sentenceId',
+      );
+    }
   }
 }
