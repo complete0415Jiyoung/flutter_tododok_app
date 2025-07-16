@@ -42,6 +42,9 @@ sealed class ParagraphPracticeAction with _$ParagraphPracticeAction {
   const factory ParagraphPracticeAction.inputCharacter(String character) =
       InputCharacter;
 
+  /// 🔥 새로 추가: 다음 줄로 이동
+  const factory ParagraphPracticeAction.moveToNextLine() = MoveToNextLine;
+
   /// 실시간 통계 업데이트
   const factory ParagraphPracticeAction.updateStats() = UpdateStats;
 

@@ -64,12 +64,15 @@ class _ParagraphPracticeScreenRootState
 
     return PopScope(
       // 뒤로가기 버튼 눌렀을 때 연습 중이면 일시정지
-      canPop: !state.isStarted || state.isPaused || state.isCompleted,
+      canPop:
+          !(state.isStarted ?? false) ||
+          (state.isPaused ?? false) ||
+          (state.isCompleted ?? false),
       onPopInvoked: (didPop) {
         if (!didPop &&
-            state.isStarted &&
-            !state.isPaused &&
-            !state.isCompleted) {
+            (state.isStarted ?? false) &&
+            !(state.isPaused ?? false) &&
+            !(state.isCompleted ?? false)) {
           notifier.onAction(const ParagraphPracticeAction.pausePractice());
         }
       },
@@ -82,14 +85,13 @@ class _ParagraphPracticeScreenRootState
               final queryParams = {
                 'type': 'practice',
                 'mode': 'paragraph',
-                'typingSpeed': state.typingSpeed.toStringAsFixed(
-                  0,
-                ), // wmp → typingSpeed
-                'accuracy': state.accuracy.toStringAsFixed(1),
+                'typingSpeed': (state.typingSpeed ?? 0.0).toStringAsFixed(0),
+                'accuracy': (state.accuracy ?? 0.0).toStringAsFixed(1),
                 'duration': state.elapsedSeconds.toStringAsFixed(1),
-                'language': state.language,
+                'language': state.language ?? 'ko',
                 'sentenceLength': state.totalSentenceLength.toString(),
-                'typos': state.totalTypos.toString(),
+                'typos': state.incorrectCharacters
+                    .toString(), // totalTypos 대신 incorrectCharacters 사용
               };
               await context.push(
                 Uri(
@@ -103,13 +105,14 @@ class _ParagraphPracticeScreenRootState
               context.go('/home');
 
             case CreateChallenge():
-              // TODO: 도전장 생성 화면으로 이동
+              // 도전장 생성 화면으로 이동
               final challengeParams = {
                 'sentenceId': state.currentSentence?.id ?? '',
                 'mode': 'paragraph',
-                'language': state.language,
-                'myWpm': state.wpm.toStringAsFixed(1),
-                'myAccuracy': state.accuracy.toStringAsFixed(1),
+                'language': state.language ?? 'ko',
+                'myTypingSpeed': (state.typingSpeed ?? 0.0).toStringAsFixed(1),
+                'myAccuracy': (state.accuracy ?? 0.0).toStringAsFixed(1),
+                'duration': state.elapsedSeconds.toStringAsFixed(1),
               };
               await context.push(
                 Uri(
@@ -121,9 +124,11 @@ class _ParagraphPracticeScreenRootState
             case PracticeAnotherSentence():
               // 문장 선택 화면으로 이동
               await context.push(
-                '/typing/sentence-selection?mode=paragraph&language=${state.language}',
+                '/typing/sentence-selection?mode=paragraph&language=${state.language ?? 'ko'}',
               );
 
+            // 🔥 새로 추가: 다음 줄 이동 액션 처리
+            case MoveToNextLine():
             case SaveResult():
             case Initialize():
             case SelectSentence():

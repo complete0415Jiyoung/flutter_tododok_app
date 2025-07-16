@@ -1,6 +1,7 @@
 // lib/typing/presentation/paragraph_practice/paragraph_practice_notifier.dart
 import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../domain/usecase/get_sentences_use_case.dart';
 import '../../domain/usecase/get_random_sentence_use_case.dart';
 import '../../domain/usecase/save_typing_result_use_case.dart';
@@ -27,11 +28,8 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     _getRandomSentenceUseCase = ref.watch(getRandomSentenceUseCaseProvider);
     _saveTypingResultUseCase = ref.watch(saveTypingResultUseCaseProvider);
 
-    // 🔥 수정: .initial() 제거하고 기본 생성자 사용
     return const ParagraphPracticeState();
   }
-
-  // 🔥 수정: dispose 메서드 제거 (Riverpod 2.x에서는 자동 처리)
 
   Future<void> onAction(ParagraphPracticeAction action) async {
     switch (action) {
@@ -57,6 +55,9 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
         _handleBackspace();
       case InputCharacter(:final character):
         _inputCharacter(character);
+      // 🔥 새로 추가: 다음 줄로 이동 처리
+      case MoveToNextLine():
+        _moveToNextLine();
       case UpdateStats():
         _updateStats();
       case ChangeLanguage(:final language):
@@ -144,135 +145,90 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
   }
 
   Future<void> _selectSentence(String sentenceId) async {
-    final sentences = state.availableSentences.value;
-    if (sentences == null) return;
+    final asyncSentences = state.availableSentences;
+    if (!asyncSentences.hasValue) return;
 
+    final sentences = asyncSentences.value!;
     final selectedSentence = sentences.firstWhere(
-      (s) => s.id == sentenceId,
+      (sentence) => sentence.id == sentenceId,
       orElse: () => sentences.first,
     );
 
-    // 선택된 문장을 20자씩 분할
     final lines = _splitSentenceIntoLines(selectedSentence.content);
 
     state = state.copyWith(
       currentSentence: selectedSentence,
       sentenceLines: lines,
       currentLineIndex: 0,
-      // 연습 상태 초기화
-      isStarted: false,
-      isCompleted: false,
-      isPaused: false,
+      // 선택 시 기존 입력 초기화
       userInput: '',
-      currentCharIndex: 0,
-      correctCharacters: 0,
-      incorrectCharacters: 0,
-      totalTypos: 0,
-      wpm: 0.0,
-      typingSpeed: 0.0,
-      accuracy: 0.0,
-      characterInputs: const [],
-      startTime: null,
-      endTime: null,
     );
   }
 
   Future<void> _selectRandomSentence() async {
-    final randomResult = await _getRandomSentenceUseCase.execute(
+    final randomSentenceResult = await _getRandomSentenceUseCase.execute(
       'paragraph',
-      state.language,
+      state.language ?? 'ko',
     );
 
-    randomResult.when(
+    randomSentenceResult.when(
       data: (sentence) {
-        // 랜덤 문장을 20자씩 분할
         final lines = _splitSentenceIntoLines(sentence.content);
-
         state = state.copyWith(
           currentSentence: sentence,
           sentenceLines: lines,
           currentLineIndex: 0,
-          // 연습 상태 초기화
-          isStarted: false,
-          isCompleted: false,
-          isPaused: false,
           userInput: '',
-          currentCharIndex: 0,
-          correctCharacters: 0,
-          incorrectCharacters: 0,
-          totalTypos: 0,
-          wpm: 0.0,
-          typingSpeed: 0.0,
-          accuracy: 0.0,
-          characterInputs: const [],
-          startTime: null,
-          endTime: null,
         );
       },
       loading: () {},
       error: (error, stackTrace) {
-        // 에러 시 기존 문장 유지
+        // 에러 처리는 필요시 추가
       },
     );
   }
 
   void _startPractice() {
-    if (!state.canStart) return;
+    if (state.currentSentence == null) return;
 
+    final now = DateTime.now();
     state = state.copyWith(
       isStarted: true,
       isPaused: false,
-      startTime: DateTime.now(),
+      isCompleted: false,
+      startTime: now,
       userInput: '',
-      currentCharIndex: 0,
-      currentLineIndex: 0,
+      characterInputs: [],
       correctCharacters: 0,
       incorrectCharacters: 0,
-      totalTypos: 0,
-      wpm: 0.0,
-      typingSpeed: 0.0,
-      accuracy: 0.0,
-      characterInputs: const [],
+      currentLineIndex: 0,
     );
 
     _startStatsTimer();
-    _lastInputTime = DateTime.now();
   }
 
   void _pausePractice() {
-    if (!state.canPause) return;
-
-    state = state.copyWith(isPaused: true);
     _stopStatsTimer();
+    state = state.copyWith(isPaused: true);
   }
 
   void _resumePractice() {
-    if (!state.canResume) return;
-
     state = state.copyWith(isPaused: false);
     _startStatsTimer();
-    _lastInputTime = DateTime.now();
   }
 
   void _restartPractice() {
-    if (!state.canRestart) return;
-
     _stopStatsTimer();
 
     state = state.copyWith(
       isStarted: false,
-      isCompleted: false,
       isPaused: false,
+      isCompleted: false,
       userInput: '',
-      currentCharIndex: 0,
-      currentLineIndex: 0,
+      characterInputs: [],
       correctCharacters: 0,
       incorrectCharacters: 0,
-      totalTypos: 0,
-      wpm: 0.0,
-      typingSpeed: 0.0,
-      accuracy: 0.0,
-      characterInputs: const [],
+      currentLineIndex: 0,
       startTime: null,
       endTime: null,
     );
@@ -297,6 +253,21 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     onAction(const ParagraphPracticeAction.saveResult());
   }
 
+  // 🔥 새로 추가: 다음 줄로 이동하는 메서드
+  void _moveToNextLine() {
+    if (!state.isStarted || state.isPaused || state.isCompleted) return;
+
+    final newLineIndex = state.currentLineIndex + 1;
+
+    // 마지막 줄을 넘어가지 않도록 체크
+    if (newLineIndex < state.sentenceLines.length) {
+      state = state.copyWith(currentLineIndex: newLineIndex);
+    } else {
+      // 모든 줄이 완료된 경우 연습 완료 처리
+      _completePractice();
+    }
+  }
+
   void _updateInput(String input) {
     if (!state.isStarted || state.isPaused || state.isCompleted) return;
 
@@ -311,10 +282,22 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       input = input.substring(0, targetText.length);
     }
 
-    // 현재 줄 인덱스 계산
-    final newLineIndex = _calculateCurrentLineIndex(input, state.sentenceLines);
+    // 현재 줄 인덱스는 자동으로 계산하지 않고 moveToNextLine에서만 업데이트
+    // 대신 입력이 변경되었을 때 줄 인덱스 검증
+    final calculatedLineIndex = _calculateCurrentLineIndex(
+      input,
+      state.sentenceLines,
+    );
 
-    state = state.copyWith(userInput: input, currentLineIndex: newLineIndex);
+    // 계산된 줄 인덱스가 현재와 다르면 동기화
+    if (calculatedLineIndex != state.currentLineIndex) {
+      state = state.copyWith(
+        userInput: input,
+        currentLineIndex: calculatedLineIndex,
+      );
+    } else {
+      state = state.copyWith(userInput: input);
+    }
 
     // 새로 입력된 글자가 있는지 확인
     if (input.length > previousInput.length) {
@@ -325,7 +308,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
       _processCharacterInput(inputChar, targetChar, newCharIndex);
     }
 
-    // 입력 완료 확인
+    // 전체 입력 완료 확인
     if (input.length == targetText.length) {
       _completePractice();
     }
@@ -339,7 +322,7 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     final now = DateTime.now();
     final inputTime = _lastInputTime != null
         ? now.difference(_lastInputTime!)
-        : const Duration(milliseconds: 0);
+        : Duration.zero;
 
     final isCorrect = inputChar == targetChar;
 
@@ -349,17 +332,16 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     } else {
       state = state.copyWith(
         incorrectCharacters: state.incorrectCharacters + 1,
-        totalTypos: state.totalTypos + 1,
       );
     }
 
-    // TypingCharacterInput 생성
+    // 입력 기록 저장
     final characterInput = TypingCharacterInput(
-      targetCharacter: targetChar,
-      actualInput: inputChar,
-      isCorrect: isCorrect,
-      timestamp: now,
-      inputDuration: inputTime,
+      targetCharacter: targetChar, // ✅ 올바른 필드명
+      actualInput: inputChar, // ✅ 올바른 필드명
+      isCorrect: isCorrect, // ✅ 맞음
+      timestamp: now, // ✅ 맞음
+      inputDuration: inputTime, // ✅ 올바른 필드명
     );
 
     state = state.copyWith(
@@ -367,112 +349,128 @@ class ParagraphPracticeNotifier extends _$ParagraphPracticeNotifier {
     );
 
     _lastInputTime = now;
-    _updateStats();
   }
 
   void _handleBackspace() {
     if (!state.isStarted || state.isPaused || state.isCompleted) return;
-    // 백스페이스 처리는 _updateInput에서 자동으로 처리됨
+
+    final currentInput = state.userInput;
+    if (currentInput.isEmpty) return;
+
+    // 마지막 글자 제거
+    final newInput = currentInput.substring(0, currentInput.length - 1);
+
+    // 삭제된 글자가 올바른 입력이었는지 확인하여 통계 조정
+    if (state.characterInputs.isNotEmpty) {
+      final lastInput = state.characterInputs.last;
+
+      int newCorrectCount = state.correctCharacters;
+      int newIncorrectCount = state.incorrectCharacters;
+
+      if (lastInput.isCorrect) {
+        newCorrectCount = (newCorrectCount - 1)
+            .clamp(0, double.infinity)
+            .toInt();
+      } else {
+        newIncorrectCount = (newIncorrectCount - 1)
+            .clamp(0, double.infinity)
+            .toInt();
+      }
+
+      state = state.copyWith(
+        userInput: newInput,
+        correctCharacters: newCorrectCount,
+        incorrectCharacters: newIncorrectCount,
+        characterInputs: state.characterInputs.sublist(
+          0,
+          state.characterInputs.length - 1,
+        ),
+      );
+    } else {
+      state = state.copyWith(userInput: newInput);
+    }
   }
 
   void _inputCharacter(String character) {
     if (!state.isStarted || state.isPaused || state.isCompleted) return;
-    // 개별 글자 입력 처리
-    final newInput = state.userInput + character;
+
+    final currentInput = state.userInput;
+    final newInput = currentInput + character;
+
     _updateInput(newInput);
-  }
-
-  void _updateStats() {
-    if (state.startTime == null) return;
-
-    // 경과 시간 계산 (분 단위)
-    final elapsedSeconds = state.elapsedSeconds;
-    final elapsedMinutes = elapsedSeconds / 60.0;
-
-    if (elapsedMinutes <= 0) return;
-
-    // 분당 타수 계산 (새로운 메인 지표)
-    final typingSpeed = state.correctCharacters / elapsedMinutes;
-
-    // 기존 WPM 계산 (호환성 유지용 - 5글자 = 1단어 가정)
-    final wpm = typingSpeed / 5.0;
-
-    // 정확도 계산
-    final totalAttempts = state.correctCharacters + state.incorrectCharacters;
-    final accuracy = totalAttempts > 0
-        ? (state.correctCharacters / totalAttempts) * 100.0
-        : 0.0;
-
-    // 상태 업데이트
-    state = state.copyWith(
-      typingSpeed: typingSpeed,
-      wpm: wpm,
-      accuracy: accuracy,
-    );
-  }
-
-  Future<void> _changeLanguage(String language) async {
-    _stopStatsTimer();
-
-    state = state.copyWith(
-      language: language,
-      isStarted: false,
-      isCompleted: false,
-      isPaused: false,
-      currentSentence: null,
-      sentenceLines: const [],
-      currentLineIndex: 0,
-      userInput: '',
-      currentCharIndex: 0,
-      correctCharacters: 0,
-      incorrectCharacters: 0,
-      totalTypos: 0,
-      wpm: 0.0,
-      typingSpeed: 0.0,
-      accuracy: 0.0,
-      characterInputs: const [],
-      startTime: null,
-      endTime: null,
-    );
-
-    await _loadSentences(language);
-  }
-
-  Future<void> _saveResult() async {
-    if (!state.isCompleted || state.currentSentence == null) return;
-
-    final result = TypingResult(
-      id: '', // Repository에서 생성됨
-      userId: 'mock_user_id', // TODO: 실제 사용자 ID로 교체
-      type: 'practice',
-      mode: 'paragraph',
-      sentenceId: state.currentSentence!.id,
-      sentenceContent: state.currentSentence!.content,
-      typingSpeed: state.typingSpeed,
-      accuracy: state.accuracy,
-      typoCount: state.totalTypos,
-      totalCharacters: state.totalSentenceLength,
-      correctCharacters: state.correctCharacters,
-      duration: state.elapsedSeconds,
-      language: state.language,
-      createdAt: DateTime.now(),
-    );
-
-    await _saveTypingResultUseCase.execute(result);
   }
 
   void _startStatsTimer() {
     _stopStatsTimer();
-
-    _statsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.isStarted && !state.isPaused && !state.isCompleted) {
-        _updateStats();
-      }
-    });
+    _statsTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => _updateStats(),
+    );
   }
 
   void _stopStatsTimer() {
     _statsTimer?.cancel();
     _statsTimer = null;
+  }
+
+  void _updateStats() {
+    _calculateRealTimeStats();
+  }
+
+  void _calculateRealTimeStats() {
+    final elapsedSeconds = state.elapsedSeconds;
+    if (elapsedSeconds <= 0) return;
+
+    final totalChars = state.userInput.length;
+    final correctChars = state.correctCharacters;
+
+    // 분당 타수 계산 (CPM - Characters Per Minute)
+    final typingSpeed = (totalChars / elapsedSeconds) * 60.0;
+
+    // 정확도 계산
+    final accuracy = totalChars > 0
+        ? (correctChars / totalChars) * 100.0
+        : 100.0;
+
+    state = state.copyWith(typingSpeed: typingSpeed, accuracy: accuracy);
+  }
+
+  Future<void> _changeLanguage(String language) async {
+    state = state.copyWith(language: language);
+    await _loadSentences(language);
+  }
+
+  Future<void> _saveResult() async {
+    final currentSentence = state.currentSentence;
+    if (currentSentence == null || !state.isCompleted) return;
+
+    final result = TypingResult(
+      id: '', // Firestore에서 자동 생성
+      userId: '', // UseCase에서 설정
+      type: 'practice',
+      mode: 'paragraph',
+      sentenceId: currentSentence.id,
+      sentenceContent: currentSentence.content,
+      typingSpeed: state.typingSpeed,
+      accuracy: state.accuracy,
+      typoCount: state.incorrectCharacters,
+      totalCharacters: state.userInput.length,
+      correctCharacters: state.correctCharacters,
+      duration: state.elapsedSeconds,
+      language: state.language ?? 'ko',
+      createdAt: DateTime.now(),
+    );
+
+    final saveResult = await _saveTypingResultUseCase.execute(result);
+
+    saveResult.when(
+      data: (savedResult) {
+        // 저장 성공 처리
+      },
+      loading: () {},
+      error: (error, stackTrace) {
+        // 에러 처리 (필요시 상태에 반영)
+      },
+    );
   }
 }

@@ -171,7 +171,6 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
         child: CustomScrollView(
           slivers: [
             _buildSliverAppBar(),
-            SliverToBoxAdapter(child: _buildHeader(sentences.length)),
             SliverToBoxAdapter(child: _buildRandomButton()),
             SliverToBoxAdapter(child: _buildSectionTitle()),
             _buildSentenceList(sentences),
@@ -185,92 +184,33 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
     return SliverAppBar(
       expandedHeight: 80,
       floating: false,
-      pinned: true,
+      pinned: true, // 스크롤 시에도 항상 고정
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColorsStyle.white, // 깔끔한 흰색 배경
+      surfaceTintColor: AppColorsStyle.white, // Material 3 색상 오버라이드
       leading: IconButton(
         icon: const Icon(
           Icons.arrow_back_ios_rounded,
           color: AppColorsStyle.textPrimary,
+          size: 20,
         ),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: Text(
         '문장 선택하기',
-        style: AppTextStyle.heading3.copyWith(
+        style: AppTextStyle.heading4.copyWith(
           color: AppColorsStyle.textPrimary,
+          fontWeight: FontWeight.w600,
         ),
       ),
       centerTitle: true,
-    );
-  }
-
-  Widget _buildHeader(int totalCount) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: widget.mode.isWord
-                  ? AppColorsStyle.primary
-                  : const Color(0xFF3B82F6),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              widget.mode.icon,
-              color: AppColorsStyle.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.mode.displayName, style: AppTextStyle.heading3),
-                const SizedBox(height: 4),
-                Text(
-                  '연습할 문장을 선택해주세요',
-                  style: AppTextStyle.bodyMedium.copyWith(
-                    color: AppColorsStyle.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColorsStyle.containerBackground,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '총 $totalCount개의 문장 • ${widget.language.displayName}',
-                    style: AppTextStyle.labelMedium.copyWith(
-                      color: AppColorsStyle.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      // 하단에 얇은 구분선
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: AppColorsStyle.border.withOpacity(0.1),
+        ),
       ),
     );
   }
@@ -341,7 +281,7 @@ class _SentenceSelectionScreenState extends State<SentenceSelectionScreen>
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 32, 20, 16),
       child: Text(
-        '문장 목록',
+        '연습할 문장을 선택해주세요.',
         style: AppTextStyle.heading4.copyWith(
           color: AppColorsStyle.textPrimary,
         ),

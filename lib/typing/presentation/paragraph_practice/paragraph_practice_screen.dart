@@ -1,13 +1,18 @@
 // lib/typing/presentation/paragraph_practice/paragraph_practice_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:tododok/shared/styles/app_colors_style.dart';
-import 'package:tododok/shared/styles/app_dimensions.dart';
-import 'package:tododok/shared/styles/app_text_style.dart';
-import '../../domain/model/sentence.dart';
-import 'paragraph_practice_action.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:tododok/typing/presentation/paragraph_practice/constants/korean_constants.dart';
+import 'package:tododok/typing/presentation/paragraph_practice/services/korean_text_processor.dart';
+import 'package:tododok/typing/presentation/paragraph_practice/services/typing_validation_service.dart';
+import 'package:tododok/typing/presentation/paragraph_practice/widgets/practice_app_bar.dart';
+import 'package:tododok/typing/presentation/paragraph_practice/widgets/practice_status_views.dart';
+import 'package:tododok/typing/presentation/paragraph_practice/widgets/sentence_preview_widget.dart';
+import '../../../shared/styles/app_colors_style.dart';
+import '../../../shared/styles/app_text_style.dart';
+import '../../../shared/styles/app_dimensions.dart';
+
 import 'paragraph_practice_state.dart';
+import 'paragraph_practice_action.dart';
 
 class ParagraphPracticeScreen extends StatefulWidget {
   final ParagraphPracticeState state;
@@ -24,42 +29,27 @@ class ParagraphPracticeScreen extends StatefulWidget {
       _ParagraphPracticeScreenState();
 }
 
-class _ParagraphPracticeScreenState extends State<ParagraphPracticeScreen>
-    with WidgetsBindingObserver, TickerProviderStateMixin {
-  late final TextEditingController _textController;
-  late final FocusNode _focusNode;
-  late final ScrollController _scrollController;
-  late AnimationController _countdownController;
-  late Animation<double> _countdownAnimation;
+class _ParagraphPracticeScreenState extends State<ParagraphPracticeScreen> {
+  late TextEditingController _textController;
+  late FocusNode _focusNode;
 
-  int _countdownValue = 3;
-  bool _showCountdown = false;
+  // ✅ 서비스 인스턴스들
+  final KoreanTextProcessor _koreanProcessor = KoreanTextProcessor();
+  final TypingValidationService _validationService = TypingValidationService();
+
+  // 🎯 순차적 요소 비교를 위한 캐시 변수
+  List<String> _targetElements = [];
 
   @override
   void initState() {
     super.initState();
     _textController = TextEditingController();
     _focusNode = FocusNode();
-    _scrollController = ScrollController();
 
-    // 카운트다운 애니메이션 설정
-    _countdownController = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
-    _countdownAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _countdownController, curve: Curves.easeOut),
-    );
-
-    WidgetsBinding.instance.addObserver(this);
-    _focusNode.addListener(_onFocusChange);
-
-    // 위젯이 생성된 후 포커스 설정
+    // 화면이 로드되면 자동으로 키보드 포커스
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if ((widget.state.isStarted ?? false) &&
-          !(widget.state.isPaused ?? false)) {
-        _focusNode.requestFocus();
-      }
+      _focusNode.requestFocus();
+      _initializeTargetElements();
     });
   }
 
@@ -67,703 +57,279 @@ class _ParagraphPracticeScreenState extends State<ParagraphPracticeScreen>
   void didUpdateWidget(ParagraphPracticeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 상태 변화에 따른 텍스트 컨트롤러 동기화
-    final currentInput = widget.state.userInput ?? '';
-    if (currentInput != _textController.text) {
-      _textController.text = currentInput;
-      _textController.selection = TextSelection.fromPosition(
-        TextPosition(offset: currentInput.length),
+    // 문장이 바뀌면 목표 텍스트 재분해
+    if (oldWidget.state.currentSentence?.content !=
+        widget.state.currentSentence?.content) {
+      _initializeTargetElements();
+    }
+  }
+
+  // 🎯 목표 텍스트 전체를 순차적으로 요소 분해
+  void _initializeTargetElements() {
+    final sentence = widget.state.currentSentence;
+    if (sentence?.content != null) {
+      _targetElements = _koreanProcessor.decomposeCompleteText(
+        sentence!.content,
       );
-    }
-
-    // 연습 시작 시 카운트다운 시작
-    final oldStarted = oldWidget.state.isStarted ?? false;
-    final newStarted = widget.state.isStarted ?? false;
-    if (!oldStarted && newStarted && !_showCountdown) {
-      _startCountdown();
-    }
-
-    // 연습 시작 시 포커스 설정
-    if (!oldStarted && newStarted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _focusNode.requestFocus();
-      });
-    }
-  }
-
-  void _startCountdown() async {
-    setState(() {
-      _showCountdown = true;
-      _countdownValue = 3;
-    });
-
-    for (int i = 3; i > 0; i--) {
-      setState(() {
-        _countdownValue = i;
-      });
-
-      _countdownController.reset();
-      await _countdownController.forward();
-
-      if (i > 1) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-    }
-
-    setState(() {
-      _showCountdown = false;
-    });
-
-    // 카운트다운 완료 후 포커스 설정
-    _focusNode.requestFocus();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    // 앱이 다시 활성화될 때 포커스 복원
-    if (state == AppLifecycleState.resumed &&
-        (widget.state.isStarted ?? false) &&
-        !(widget.state.isPaused ?? false)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _focusNode.requestFocus();
-      });
-    }
-  }
-
-  void _onFocusChange() {
-    // 연습 중에 포커스를 잃으면 다시 요청
-    if ((widget.state.isStarted ?? false) &&
-        !(widget.state.isPaused ?? false) &&
-        !_focusNode.hasFocus) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted &&
-            (widget.state.isStarted ?? false) &&
-            !(widget.state.isPaused ?? false)) {
-          _focusNode.requestFocus();
-        }
-      });
+      print('목표 요소들 (현재 문장만): $_targetElements'); // 디버깅용
     }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _focusNode.removeListener(_onFocusChange);
     _textController.dispose();
     _focusNode.dispose();
-    _scrollController.dispose();
-    _countdownController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColorsStyle.surface,
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          // 진행바 (앱바 바로 하단)
-          _buildProgressBar(),
-          // 진행상황 표시
-          _buildStatsSection(),
-          // 메인 컨텐츠
-          Expanded(child: _buildBody()),
-        ],
+      backgroundColor: AppColorsStyle.background,
+      appBar: PracticeAppBar(
+        onBackPressed: () =>
+            widget.onAction(const ParagraphPracticeAction.navigateToHome()),
       ),
+      body: _buildBody(),
     );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text('연습 모드'),
-      backgroundColor: const Color(0xFF4A5568), // 다크 블루 색상
-      foregroundColor: Colors.white,
-      elevation: 0,
-      actions: [
-        _buildLanguageToggle(),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: (value) {
-            switch (value) {
-              case 'restart':
-                widget.onAction(
-                  const ParagraphPracticeAction.restartPractice(),
-                );
-              case 'random':
-                widget.onAction(
-                  const ParagraphPracticeAction.selectRandomSentence(),
-                );
-              case 'home':
-                widget.onAction(const ParagraphPracticeAction.navigateToHome());
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'restart', child: Text('다시 시작')),
-            const PopupMenuItem(value: 'random', child: Text('랜덤 문장')),
-            const PopupMenuItem(value: 'home', child: Text('홈으로')),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLanguageToggle() {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: TextButton(
-        onPressed: () {
-          final currentLang = widget.state.language ?? 'ko';
-          final newLanguage = currentLang == 'ko' ? 'en' : 'ko';
-          widget.onAction(ParagraphPracticeAction.changeLanguage(newLanguage));
-        },
-        child: Text(
-          (widget.state.language ?? 'ko') == 'ko' ? '한글' : 'ENG',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 진행바 (앱바 바로 하단)
-  Widget _buildProgressBar() {
-    return Container(
-      height: 4,
-      color: Colors.grey[300],
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: widget.state.progress,
-        child: Container(
-          color: const Color(0xFFE59400), // 오렌지 색상
-        ),
-      ),
-    );
-  }
-
-  // 진행상황 표시 (속도, 정확도, 시간)
-  Widget _buildStatsSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-      color: const Color(0xFF4A5568), // 다크 블루 배경
-      child: Stack(
-        children: [
-          // 일반 통계 표시
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildStatItem(
-                _formatTime(widget.state.elapsedSeconds),
-                '',
-                Colors.white,
-              ),
-              _buildStatItem(
-                '${(widget.state.typingSpeed ?? 0.0).toInt()}',
-                '',
-                const Color(0xFFE59400), // 오렌지 색상
-              ),
-              _buildStatItem(
-                '${(widget.state.accuracy ?? 0.0).toInt()}%',
-                '',
-                Colors.white,
-              ),
-            ],
-          ),
-          // 카운트다운 오버레이
-          if (_showCountdown)
-            Positioned.fill(
-              child: Container(
-                color: const Color(0xFF4A5568).withOpacity(0.9),
-                child: Center(
-                  child: AnimatedBuilder(
-                    animation: _countdownAnimation,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: 0.8 + (_countdownAnimation.value * 0.4),
-                        child: Opacity(
-                          opacity: 1.0 - (_countdownAnimation.value * 0.3),
-                          child: Text(
-                            _countdownValue.toString(),
-                            style: const TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFE59400),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String value, String label, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        if (label.isNotEmpty)
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
-
-  // 시간을 mm:ss 형식으로 포맷
-  String _formatTime(double seconds) {
-    final int minutes = (seconds / 60).floor();
-    final int remainingSeconds = (seconds % 60).floor();
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   Widget _buildBody() {
-    if (widget.state.isCompleted == true) {
-      return _buildCompletedView();
+    if (widget.state.availableSentences is AsyncLoading) {
+      return PracticeStatusViews.loading();
     }
 
+    if (widget.state.availableSentences is AsyncError) {
+      return PracticeStatusViews.error();
+    }
+
+    // 일시정지 상태 확인 (있다면)
     if (widget.state.isPaused == true) {
-      return _buildPausedView();
+      return PracticeStatusViews.paused(
+        onResume: () =>
+            widget.onAction(const ParagraphPracticeAction.resumePractice()),
+        onRestart: () =>
+            widget.onAction(const ParagraphPracticeAction.restartPractice()),
+      );
     }
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        controller: _scrollController,
+    // 완료 상태 확인 (있다면)
+    if (widget.state.isCompleted == true) {
+      return PracticeStatusViews.completed(
+        onViewResult: () =>
+            widget.onAction(const ParagraphPracticeAction.navigateToResult()),
+        onRestart: () =>
+            widget.onAction(const ParagraphPracticeAction.restartPractice()),
+      );
+    }
+
+    return _buildSentencePreview();
+  }
+
+  Widget _buildSentencePreview() {
+    final sentence = widget.state.currentSentence;
+
+    // 문장이 없는 경우
+    if (sentence == null) {
+      return const Center(child: Text('문장을 선택해주세요'));
+    }
+
+    return GestureDetector(
+      onTap: () {
+        // 화면을 탭하면 키보드 포커스
+        _focusNode.requestFocus();
+      },
+      child: Padding(
         padding: const EdgeInsets.all(AppDimensions.paddingLG),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            if (!(widget.state.isStarted ?? false)) ...[
-              _buildSentenceSelection(),
-              const SizedBox(height: AppDimensions.spacing24),
-              _buildCurrentSentencePreview(),
-              const SizedBox(height: AppDimensions.spacing24),
-              _buildStartButton(),
-            ] else ...[
-              _buildPracticeContent(),
-            ],
+            // 문장 미리보기 (뒤쪽)
+            _buildPreviewText(sentence),
+
+            // 입력 표시 (앞쪽에 겹침)
+            _buildInputField(),
+
+            // 숨겨진 실제 입력창
+            _buildHiddenTextField(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSentenceSelection() {
-    final asyncSentences = widget.state.availableSentences;
-
-    // AsyncValue에 when이 없을 때 대체 구현
-    if (asyncSentences.hasError) {
-      return Center(child: Text('문장을 불러오는데 실패했습니다: ${asyncSentences.error}'));
-    }
-    if (asyncSentences.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final sentences = asyncSentences.value ?? [];
-    final currentSentence = widget.state.currentSentence;
-
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.cardBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColorsStyle.shadow,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('연습할 문장 선택', style: AppTextStyle.heading4),
-              TextButton(
-                onPressed: () => widget.onAction(
-                  const ParagraphPracticeAction.selectRandomSentence(),
-                ),
-                child: const Text('랜덤 선택'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimensions.spacing16),
-          DropdownButtonFormField<String>(
-            value: currentSentence?.id,
-            decoration: const InputDecoration(
-              labelText: '문장',
-              border: OutlineInputBorder(),
-            ),
-            items: sentences.map((sentence) {
-              return DropdownMenuItem(
-                value: sentence.id,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      sentence.content.length > 50
-                          ? '${sentence.content.substring(0, 50)}...'
-                          : sentence.content,
-                      style: AppTextStyle.bodyMedium,
-                    ),
-                    Text(
-                      '난이도: ${sentence.difficulty} | ${sentence.content.length}글자',
-                      style: AppTextStyle.labelSmall.copyWith(
-                        color: AppColorsStyle.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-            onChanged: (sentenceId) {
-              if (sentenceId != null) {
-                widget.onAction(
-                  ParagraphPracticeAction.selectSentence(sentenceId),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
+  Widget _buildPreviewText(dynamic sentence) {
+    return SentencePreviewWidget(sentence: sentence);
   }
 
-  Widget _buildCurrentSentencePreview() {
-    final sentence = widget.state.currentSentence;
-    if (sentence == null) return const SizedBox.shrink();
-
-    return Container(
+  // 🎯 한글 스킵 전환을 지원하는 입력 필드
+  Widget _buildInputField() {
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: AppColorsStyle.containerBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-        border: Border.all(color: AppColorsStyle.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColorsStyle.primary,
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
-                ),
-                child: Text(
-                  '난이도 ${sentence.difficulty}',
-                  style: AppTextStyle.labelSmall.copyWith(
-                    color: AppColorsStyle.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimensions.spacing12),
-          Text(
-            sentence.content,
-            style: AppTextStyle.typingText.copyWith(fontSize: 16, height: 1.8),
-          ),
-          const SizedBox(height: AppDimensions.spacing12),
-          Text(
-            '총 ${sentence.content.length}글자 | ${sentence.wordCount}단어',
-            style: AppTextStyle.labelMedium.copyWith(
-              color: AppColorsStyle.textTertiary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStartButton() {
-    return Center(
-      child: SizedBox(
-        width: 200,
-        height: 50,
-        child: ElevatedButton(
-          onPressed: widget.state.currentSentence != null
-              ? () => widget.onAction(
-                  const ParagraphPracticeAction.startPractice(),
-                )
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColorsStyle.primary,
-            foregroundColor: AppColorsStyle.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-            ),
-          ),
-          child: const Text(
-            '연습 시작',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+      child: RichText(
+        textAlign: TextAlign.left,
+        text: TextSpan(
+          children: _buildSkipTransitionTextSpans(),
+          style: AppTextStyle.typingText.copyWith(height: 1.8, fontSize: 20),
         ),
       ),
     );
   }
 
-  Widget _buildPracticeContent() {
-    final sentence = widget.state.currentSentence;
-    if (sentence == null) return const SizedBox.shrink();
+  // 🎯 핵심: 받침 누락 감지를 포함한 한글 스킵 전환 TextSpan 생성
+  List<TextSpan> _buildSkipTransitionTextSpans() {
+    List<TextSpan> spans = [];
+    final inputText = _textController.text;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 현재 입력해야 하는 타자 영역
-        _buildTypingArea(),
-        const SizedBox(height: AppDimensions.spacing24),
-        // 입력창 (타자 영역 바로 아래)
-        _buildInputField(),
-        const SizedBox(height: AppDimensions.spacing12),
-        Text(
-          '입력된 글자: ${(widget.state.userInput ?? '').length} / ${widget.state.totalSentenceLength}',
-          style: AppTextStyle.labelMedium.copyWith(
-            color: AppColorsStyle.textSecondary,
-          ),
-        ),
-      ],
+    List<String> inputElements = _koreanProcessor.decomposeCompleteText(
+      inputText,
     );
-  }
 
-  // State에서 미리 분할된 데이터를 사용하여 타자 영역 표시
-  Widget _buildTypingArea() {
-    final currentLineText = widget.state.currentLineText;
-    final nextLineText = widget.state.nextLineText;
+    print('=== 입력 분석 시작 ===');
+    print('입력 텍스트: $inputText');
+    print('입력 요소들: $inputElements');
+    print('목표 요소들: $_targetElements');
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 현재 입력할 줄 (강조)
-          if (currentLineText.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE59400), width: 2),
-              ),
-              child: _buildHighlightedCurrentLine(),
-            ),
-            const SizedBox(height: 16),
-          ],
+    int targetElementIndex = 0; // 실제 목표 인덱스
 
-          // 다음 줄 미리보기
-          const Text('Next', style: AppTextStyle.labelMedium),
-          Text(
-            nextLineText,
-            style: AppTextStyle.bodySmall.copyWith(color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 현재 줄의 하이라이트 표시 (State 데이터 활용)
-  Widget _buildHighlightedCurrentLine() {
-    final userInput = widget.state.userInput ?? '';
-    final currentLineText = widget.state.currentLineText;
-    final currentLineStartPosition = widget.state.currentLineStartPosition;
-    final currentLinePosition = widget.state.currentLinePosition;
-
-    final List<TextSpan> spans = [];
-
-    for (int i = 0; i < currentLineText.length; i++) {
-      final globalIndex = currentLineStartPosition + i;
+    // 입력된 각 글자를 순회
+    for (int charIndex = 0; charIndex < inputText.length; charIndex++) {
+      final inputChar = inputText[charIndex];
       Color textColor;
-      Color? backgroundColor;
 
-      if (i < currentLinePosition && globalIndex < userInput.length) {
-        // 사용자가 입력한 부분
-        if (userInput[globalIndex] == currentLineText[i]) {
-          // 올바른 입력 - 파란색
-          textColor = Colors.blue;
+      print('\n--- 글자 $charIndex: $inputChar (인덱스: $targetElementIndex) ---');
+
+      if (_koreanProcessor.isKoreanCharComplete(inputChar)) {
+        // 🔥 완성된 한글: 받침 누락 감지 포함한 전체 글자 검증
+        // ✅ 서비스 호출로 변경
+        textColor = _validationService.getCompleteCharacterColor(
+          inputChar: inputChar,
+          targetElementIndex: targetElementIndex,
+          charIndex: charIndex,
+          inputText: inputText,
+          targetElements: _targetElements,
+          targetText: widget.state.currentSentence?.content ?? '',
+        );
+
+        // 인덱스 업데이트 로직 개선
+        if (textColor == AppColorsStyle.error) {
+          // 🎯 오류인 경우: 받침 누락인지 확인하여 적절히 인덱스 조정
+          // ✅ 서비스 호출로 변경
+          if (_validationService.hasIncompleteInput(
+                inputChar: inputChar,
+                targetElementIndex: targetElementIndex,
+                charIndex: charIndex,
+                inputText: inputText,
+                targetText: widget.state.currentSentence?.content ?? '',
+              ) ||
+              _validationService.isIncompleteCharacterMatch(
+                inputChar: inputChar,
+                targetElementIndex: targetElementIndex,
+                targetElements: _targetElements,
+              )) {
+            // 받침 누락인 경우: 예상 글자의 전체 요소 수만큼 스킵
+            String? expectedChar = _koreanProcessor.findExpectedCharacterAt(
+              elementIndex: targetElementIndex,
+              targetText: widget.state.currentSentence?.content ?? '',
+            );
+            if (expectedChar != null) {
+              List<String> expectedElements = _koreanProcessor
+                  .decomposeCharacterToElements(expectedChar);
+              targetElementIndex += expectedElements.length;
+              print(
+                '받침 누락으로 예상 글자 스킵: $expectedChar (${expectedElements.length}개 요소)',
+              );
+            } else {
+              // 예상 글자를 찾을 수 없는 경우: 입력 글자의 요소 수만큼만 증가
+              List<String> charElements = _koreanProcessor
+                  .decomposeCharacterToElements(inputChar);
+              targetElementIndex += charElements.length;
+              print('예상 글자 없음, 입력 글자만큼 증가: ${charElements.length}');
+            }
+          } else {
+            // 일반적인 오류: 입력 글자의 요소 수만큼만 증가
+            List<String> charElements = _koreanProcessor
+                .decomposeCharacterToElements(inputChar);
+            targetElementIndex += charElements.length;
+            print('일반 오류, 입력 글자만큼 증가: ${charElements.length}');
+          }
         } else {
-          // 틀린 입력 - 빨간색
-          textColor = Colors.red;
-          backgroundColor = Colors.red.withOpacity(0.2);
+          // 정상적인 경우: 입력 글자의 요소 수만큼 증가
+          List<String> charElements = _koreanProcessor
+              .decomposeCharacterToElements(inputChar);
+          targetElementIndex += charElements.length;
+          print('정상 입력, 요소 수만큼 증가: ${charElements.length}');
         }
-      } else if (i == currentLinePosition) {
-        // 현재 입력해야 할 글자
-        textColor = Colors.black;
-        backgroundColor = Colors.orange.withOpacity(0.4);
+
+        print('완성된 글자 처리 완료: $inputChar → 새로운 인덱스: $targetElementIndex');
+      } else if (_koreanProcessor.isKoreanChar(inputChar)) {
+        // 🟡 조합 중인 한글: 받침 누락을 포함한 스마트 스킵 검증
+        // ✅ 서비스 호출로 변경
+        var result = _validationService.getKoreanElementColorWithSkip(
+          inputChar: inputChar,
+          currentTargetIndex: targetElementIndex,
+          charIndex: charIndex,
+          inputText: inputText,
+          targetElements: _targetElements,
+          targetText: widget.state.currentSentence?.content ?? '',
+        );
+        textColor = result['color'];
+        targetElementIndex = result['newIndex'];
+
+        print('한글 요소 처리: $inputChar → 새로운 인덱스: $targetElementIndex');
       } else {
-        // 아직 입력하지 않은 부분 - 검정색
-        textColor = Colors.black;
+        // 🔤 영어, 숫자, 특수문자: 순차적 목표와 즉시 비교
+        final isCorrect =
+            targetElementIndex < _targetElements.length &&
+            inputChar == _targetElements[targetElementIndex];
+
+        textColor = isCorrect
+            ? AppColorsStyle.textPrimary
+            : AppColorsStyle.error;
+
+        if (isCorrect) targetElementIndex++;
+        print('비한글 처리: $inputChar → 정확: $isCorrect → 인덱스: $targetElementIndex');
       }
 
       spans.add(
         TextSpan(
-          text: currentLineText[i],
+          text: inputChar,
           style: TextStyle(
             color: textColor,
-            backgroundColor: backgroundColor,
+            backgroundColor: AppColorsStyle.background,
             fontSize: 20,
-            height: 1.5,
-            fontWeight: FontWeight.w500,
+            height: 1.8,
+            fontFamily: AppTextStyle.typingText.fontFamily,
+            fontWeight: AppTextStyle.typingText.fontWeight,
           ),
         ),
       );
     }
 
-    return RichText(text: TextSpan(children: spans));
+    print('=== 입력 분석 완료 ===\n');
+    return spans;
   }
 
-  // 입력창
-  Widget _buildInputField() {
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      decoration: BoxDecoration(
-        color: const Color(0xFF4A5568), // 다크 블루
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-      ),
-      child: TextField(
-        controller: _textController,
-        focusNode: _focusNode,
-        onChanged: (value) {
-          widget.onAction(ParagraphPracticeAction.updateInput(value));
-
-          // 입력 완료 체크
-          final sentence = widget.state.currentSentence;
-          if (sentence != null && value.length >= sentence.content.length) {
-            widget.onAction(const ParagraphPracticeAction.completePractice());
-          }
-        },
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          hintText: '여기에 입력하세요...',
-          hintStyle: TextStyle(color: Colors.grey),
-        ),
-        style: const TextStyle(fontSize: 16, color: Colors.white),
-        maxLines: 2,
-        autofocus: true,
-        textInputAction: TextInputAction.done,
-      ),
-    );
-  }
-
-  Widget _buildPausedView() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(AppDimensions.paddingXL),
-        margin: const EdgeInsets.all(AppDimensions.paddingLG),
-        decoration: BoxDecoration(
-          color: AppColorsStyle.cardBackground,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColorsStyle.shadow,
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.pause_circle,
-              size: 64,
-              color: AppColorsStyle.primary,
-            ),
-            const SizedBox(height: AppDimensions.spacing16),
-            const Text('연습 일시정지', style: AppTextStyle.heading3),
-            const SizedBox(height: AppDimensions.spacing24),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed: () => widget.onAction(
-                    const ParagraphPracticeAction.resumePractice(),
-                  ),
-                  child: const Text('계속하기'),
-                ),
-                const SizedBox(width: AppDimensions.spacing16),
-                OutlinedButton(
-                  onPressed: () => widget.onAction(
-                    const ParagraphPracticeAction.restartPractice(),
-                  ),
-                  child: const Text('다시 시작'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompletedView() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(AppDimensions.paddingXL),
-        margin: const EdgeInsets.all(AppDimensions.paddingLG),
-        decoration: BoxDecoration(
-          color: AppColorsStyle.cardBackground,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColorsStyle.shadow,
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.check_circle,
-              size: 64,
-              color: AppColorsStyle.success,
-            ),
-            const SizedBox(height: AppDimensions.spacing16),
-            const Text('연습 완료!', style: AppTextStyle.heading3),
-            const SizedBox(height: AppDimensions.spacing24),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed: () => widget.onAction(
-                    const ParagraphPracticeAction.navigateToResult(),
-                  ),
-                  child: const Text('결과 보기'),
-                ),
-                const SizedBox(width: AppDimensions.spacing16),
-                OutlinedButton(
-                  onPressed: () => widget.onAction(
-                    const ParagraphPracticeAction.restartPractice(),
-                  ),
-                  child: const Text('다시 시작'),
-                ),
-              ],
-            ),
-          ],
+  Widget _buildHiddenTextField() {
+    return Positioned(
+      left: -9999, // 화면 밖으로 숨김
+      child: SizedBox(
+        width: 1,
+        height: 1,
+        child: TextField(
+          focusNode: _focusNode,
+          controller: _textController,
+          style: const TextStyle(color: Colors.transparent),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+          maxLines: null,
+          showCursor: false, // 커서 숨김 (RichText에서 표시)
+          onChanged: (value) {
+            setState(() {
+              // 입력 변경 시 화면 갱신 - 한글 스킵 전환 처리됨
+            });
+          },
         ),
       ),
     );

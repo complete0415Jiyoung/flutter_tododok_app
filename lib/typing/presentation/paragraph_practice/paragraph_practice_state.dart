@@ -199,4 +199,19 @@ class ParagraphPracticeState with _$ParagraphPracticeState {
     return currentLineIndex >= sentenceLines.length - 1 &&
         isCurrentLineCompleted;
   }
+
+  /// 현재 줄의 사용자 입력만 추출
+  String get currentLineUserInput {
+    final lineStartPos = currentLineStartPosition;
+    final lineEndPos = lineStartPos + currentLineText.length;
+
+    if (userInput.length <= lineStartPos) {
+      return '';
+    }
+
+    final endIndex = userInput.length < lineEndPos
+        ? userInput.length
+        : lineEndPos;
+    return userInput.substring(lineStartPos, endIndex);
+  }
 }
